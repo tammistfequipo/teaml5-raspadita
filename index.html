@@ -5,14 +5,11 @@
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>RASPADITA TEAM L-5</title>
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@800;900&family=Inter:wght@400;700;800&display=swap" rel="stylesheet">
-
-<!-- Librería para captura de pantalla -->
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js" defer></script>
-
 <style>
   :root{
-    /* 🎯 Fondo personalizado */
-    --bg-url: url("https://raw.githubusercontent.com/tammistf/equipo-tf-ruleta/main/f1ec4f7e-3b11-414c-bb1c-3db302c97c66.jpg");
+    /* Se setea por JS si carga OK */
+    --bg-url: none;
     --glass: rgba(10,14,25,.55);
     --accent: #00d5ff;
     --accent-2: #7b5cff;
@@ -22,12 +19,21 @@
   *{box-sizing:border-box}
   html,body{height:100%}
   body{
-    margin:0; color:#eaf2ff;
-    font-family: Inter, system-ui, Segoe UI, Roboto, Arial, sans-serif;
+    margin:0; color:#eaf2ff; font-family: Inter, system-ui, Segoe UI, Roboto, Arial, sans-serif;
     background:#0b0f1a;
   }
-  .bg{position:fixed; inset:0; z-index:-2; background: var(--bg-url) center/cover no-repeat fixed; filter:brightness(.85) saturate(1.05)}
-  .bg::after{content:""; position:absolute; inset:0; background:linear-gradient(180deg, rgba(8,10,18,.55), rgba(8,10,18,.78)); backdrop-filter: blur(2px)}
+  .bg{position:fixed; inset:0; z-index:-2;
+    background: #101623 center/cover no-repeat fixed;
+    filter:brightness(.9) saturate(1.05)}
+  /* cuando la imagen carga, se aplica */
+  .bg.bg-ready{ background-image: var(--bg-url); }
+
+  .bg::after{
+    content:""; position:absolute; inset:0;
+    background:linear-gradient(180deg, rgba(8,10,18,.55), rgba(8,10,18,.78));
+    backdrop-filter: blur(2px)
+  }
+
   .wrap{min-height:100%; display:grid; place-items:center; padding:20px}
   .stack{width:min(520px, 92vw); margin-inline:auto}
   h1{
@@ -43,43 +49,27 @@
   @keyframes blink{0%,100%{filter:drop-shadow(0 2px 0 #000)}50%{filter:drop-shadow(0 0 18px rgba(255,216,107,.55))}}
 
   .card{
-    position:relative; overflow:hidden;
-    background: var(--glass);
-    border:1px solid rgba(255,255,255,.08);
-    border-radius: 18px;
-    padding:18px;
+    position:relative; overflow:hidden; background: var(--glass);
+    border:1px solid rgba(255,255,255,.08); border-radius: 18px; padding:18px;
     box-shadow: 0 10px 40px rgba(0,0,0,.45), inset 0 0 0 1px rgba(255,255,255,.04);
     backdrop-filter: blur(6px);
   }
-
   .prize-wrap{
-    position:relative;
-    width:100%;
-    height:240px;
-    border-radius:14px;
-    overflow:hidden;
-    isolation:isolate;
-    border:1px solid rgba(255,255,255,.08);
-    background:rgba(0,0,0,.35);
+    position:relative; width:100%; height:240px; border-radius:14px; overflow:hidden; isolation:isolate;
+    border:1px solid rgba(255,255,255,.08); background:rgba(0,0,0,.35);
   }
-
   #premio{
     position:absolute; inset:0; display:grid; place-items:center;
     font-weight:800; font-size:clamp(20px,4.8vw,28px); color:var(--gold);
     text-shadow: 0 2px 0 rgba(0,0,0,.8), 0 0 14px rgba(255,216,107,.35);
     padding:10px; text-align:center;
   }
-
   #scratch{
     position:absolute; inset:0; display:block; border-radius:14px;
     box-shadow: inset 0 0 0 1px rgba(0,0,0,.35), 0 0 22px rgba(0,0,0,.25);
-    touch-action:none;
-    clip-path: inset(0 round 14px);
+    touch-action:none; clip-path: inset(0 round 14px);
   }
-
-  .actions{
-    display:flex; gap:10px; justify-content:center; margin-top:16px; flex-wrap:wrap;
-  }
+  .actions{display:flex; gap:10px; justify-content:center; margin-top:16px; flex-wrap:wrap;}
   .btn{
     border:0; cursor:pointer; padding:12px 18px; border-radius:999px;
     font-weight:800; letter-spacing:.3px; display:inline-flex; align-items:center; gap:8px;
@@ -88,18 +78,24 @@
   }
   .btn:hover{ transform: translateY(-1px); box-shadow:0 12px 28px rgba(0,213,255,.32) }
   .btn:active{ transform: translateY(1px); filter:brightness(.92) }
-
-  #whatsappBtn{ display:none }
-  #downloadBtn{ display:none }
-
+  #whatsappBtn{ display:none }  #downloadBtn{ display:none }
   .hint{color:var(--muted); text-align:center; margin-top:8px; font-size:14px}
 
   .confetti-layer{ position: fixed; inset:0; pointer-events:none; overflow:hidden; z-index: 999; }
   .confetto{position:absolute; width:10px; height:14px; border-radius:2px; opacity:.95}
+
+  /* Toast de error (si no carga la imagen) */
+  .toast{
+    position:fixed; left:50%; transform:translateX(-50%);
+    bottom:16px; padding:10px 14px; font-weight:700; font-size:14px;
+    color:#0c111c; background:#ffd86b; border-radius:10px; box-shadow:0 8px 18px rgba(0,0,0,.35);
+    display:none; z-index:1000;
+  }
+  .toast.show{display:block;}
 </style>
 </head>
 <body>
-  <div class="bg"></div>
+  <div class="bg" id="bg"></div>
 
   <div class="wrap">
     <div class="stack">
@@ -121,8 +117,56 @@
   </div>
 
   <div class="confetti-layer" id="confettiLayer"></div>
+  <div class="toast" id="toast">No se encontró la imagen de fondo. Subila a /public/ o revisá la URL.</div>
 
 <script>
+  /* ====== FONDO: intenta rutas en orden ======
+     1) Local/Vercel: /f1ec4f7e-3b11-414c-bb1c-3db302c97c66.jpg  (colocala en /public/)
+     2) GitHub RAW (main)
+     3) GitHub RAW (master)
+  */
+  const FILE = "f1ec4f7e-3b11-414c-bb1c-3db302c97c66.jpg";
+  const GITHUB_USER = "tammistf";        // <- cambiá si tu repo es otro usuario
+  const GITHUB_REPO = "equipo-tf-ruleta"; // <- cambiá si tu repo se llama distinto
+
+  const BG_CANDIDATES = [
+    // Vercel sirve /public/ en la raíz del dominio:
+    `${location.origin.replace(/\/$/, "")}/${FILE}`,
+    // Intento relativo por si se sirve desde subruta
+    `./${FILE}`,
+    // GitHub raw (main)
+    `https://raw.githubusercontent.com/${GITHUB_USER}/${GITHUB_REPO}/main/${FILE}`,
+    // GitHub raw (master)
+    `https://raw.githubusercontent.com/${GITHUB_USER}/${GITHUB_REPO}/master/${FILE}`
+  ];
+
+  const bgEl = document.getElementById('bg');
+  const toast = document.getElementById('toast');
+
+  async function pickBackground(urls){
+    for (const url of urls){
+      const ok = await testImage(url);
+      if (ok){
+        document.documentElement.style.setProperty('--bg-url', `url("${url}")`);
+        bgEl.classList.add('bg-ready');
+        return true;
+      }
+    }
+    toast.classList.add('show');
+    return false;
+  }
+
+  function testImage(src){
+    return new Promise(res=>{
+      const img = new Image();
+      img.onload = ()=>res(true);
+      img.onerror = ()=>res(false);
+      // evita cache pegado
+      img.src = src + (src.includes('?') ? '&' : '?') + 'v=' + Date.now();
+    });
+  }
+
+  // ====== LÓGICA DE RASPADO ======
   const canvas = document.getElementById('scratch');
   const ctx = canvas.getContext('2d', { willReadFrequently: true });
   const premio = document.getElementById('premio');
@@ -130,10 +174,9 @@
   const card = document.getElementById('card');
   const whatsappBtn = document.getElementById('whatsappBtn');
   const downloadBtn = document.getElementById('downloadBtn');
-
+  const WHATSAPP_NUMBER = "5491167907135";
   const BRUSH = 46;
   const REVEAL_THRESHOLD = 0.5;
-  const WHATSAPP_NUMBER = "5491167907135";
 
   let drawing = false, revealed = false, last = null, lastCheck = 0, dpr = 1;
 
@@ -194,7 +237,6 @@
       ctx.stroke();
     }
     last = {x, y};
-
     throttleCheck();
   }
 
@@ -248,49 +290,47 @@
     downloadBtn.style.display = 'inline-flex';
   }
 
+  // Eventos pointer
   canvas.addEventListener('pointerdown', e=>{ canvas.setPointerCapture(e.pointerId); drawing = true; last = null; scratch(e); });
   canvas.addEventListener('pointermove', scratch);
   canvas.addEventListener('pointerup',   e=>{ canvas.releasePointerCapture?.(e.pointerId); drawing = false; last = null; });
   canvas.addEventListener('pointercancel',()=>{ drawing = false; last = null; });
   canvas.style.touchAction = 'none';
 
+  // Captura tarjeta
   async function captureCardBlob(){
     if (!window.html2canvas) return null;
-    const canvasCap = await html2canvas(card, {
-      backgroundColor: null,
-      scale: Math.min(window.devicePixelRatio || 1, 2),
-      useCORS: true
-    });
+    const canvasCap = await html2canvas(card, { backgroundColor: null, scale: Math.min(window.devicePixelRatio || 1, 2), useCORS: true });
     return await new Promise(res => canvasCap.toBlob(res, 'image/png', 0.95));
   }
-
   function downloadBlob(blob, filename){
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = filename;
+    const a = document.createElement('a'); a.href = url; a.download = filename;
     document.body.appendChild(a); a.click();
     setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); }, 100);
   }
-
   downloadBtn.addEventListener('click', async ()=>{
-    const blob = await captureCardBlob();
-    if (!blob) return;
-    downloadBlob(blob, 'premio.png');
+    const blob = await captureCardBlob(); if (!blob) return; downloadBlob(blob, 'premio.png');
   });
-
   whatsappBtn.addEventListener('click', async ()=>{
     const mensaje = `¡Hola! Acabo de ganar en la RASPADITA TEAM L-5: ${premio.textContent.trim()}`;
     const blob = await captureCardBlob();
     const waURL = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(mensaje)}`;
-    if (blob){
-      downloadBlob(blob, 'premio.png');
-    }
+    if (blob){ downloadBlob(blob, 'premio.png'); }
     window.open(waURL, '_blank');
   });
 
+  // Init
   window.addEventListener('resize', size);
-  window.addEventListener('load', size);
-  document.addEventListener('DOMContentLoaded', size);
+  window.addEventListener('load', ()=>{
+    size();
+    pickBackground(BG_CANDIDATES);
+  });
+  document.addEventListener('DOMContentLoaded', ()=>{
+    size();
+    // Intento por si el load llegó antes
+    pickBackground(BG_CANDIDATES);
+  });
 </script>
 </body>
 </html>
