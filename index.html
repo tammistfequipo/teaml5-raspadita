@@ -7,7 +7,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@800;900&family=Inter:wght@400;700;800&display=swap" rel="stylesheet">
 <style>
   :root{
-    /* 🔁 Cambiá acá la imagen de fondo */
+    /* 🎯 Cambiá acá el fondo general */
     --bg-url: url("https://images.unsplash.com/photo-1520975922215-230f5a0627dd?q=80&w=1600&auto=format&fit=crop");
     --glass: rgba(10,14,25,.55);
     --accent: #00d5ff;
@@ -27,7 +27,7 @@
   }
   .bg{position:fixed; inset:0; z-index:-2; background: var(--bg-url) center/cover no-repeat fixed; filter:brightness(.85) saturate(1.05)}
   .bg::after{content:""; position:absolute; inset:0; background:linear-gradient(180deg, rgba(8,10,18,.55), rgba(8,10,18,.78)); backdrop-filter: blur(2px)}
-  .wrap{min-height:100%; display:grid; place-items:center; padding:28px}
+  .wrap{min-height:100%; display:grid; place-items:center; padding:20px}
   .stack{width:min(520px, 92vw); margin-inline:auto}
   h1{
     margin:0 0 18px; text-align:center;
@@ -40,28 +40,46 @@
   }
   @keyframes popIn{0%{transform:scale(.2);opacity:0}70%{transform:scale(1.08);opacity:1}100%{transform:scale(1)}}
   @keyframes blink{0%,100%{filter:drop-shadow(0 2px 0 #000)}50%{filter:drop-shadow(0 2px 0 #000) drop-shadow(0 0 18px rgba(255,216,107,.55))}}
+
   .card{
     position:relative; overflow:hidden;
     background: var(--glass);
     border:1px solid rgba(255,255,255,.08);
     border-radius: 18px;
-    padding:22px;
+    padding:18px;
     box-shadow: 0 10px 40px rgba(0,0,0,.45), inset 0 0 0 1px rgba(255,255,255,.04);
     backdrop-filter: blur(6px);
   }
-  #premio{
-    position:relative; width:100%; height:240px; display:grid; place-items:center;
-    border-radius:14px; overflow:hidden;
-    background: radial-gradient(60% 60% at 50% 40%, rgba(255,255,255,.06), transparent 60%), rgba(0,0,0,.35);
+
+  /* Contenedor del premio: asegura que NADA se salga ni en móvil */
+  .prize-wrap{
+    position:relative;
+    width:100%;
+    height:240px;               /* Podés subir/bajar esta altura */
+    border-radius:14px;
+    overflow:hidden;            /* 🔒 Clipping riguroso */
+    isolation:isolate;          /* evita que filtros salgan fuera */
     border:1px solid rgba(255,255,255,.08);
+    background:
+      radial-gradient(60% 60% at 50% 40%, rgba(255,255,255,.06), transparent 60%),
+      rgba(0,0,0,.35);
+  }
+
+  #premio{
+    position:absolute; inset:0; display:grid; place-items:center;
     font-weight:800; font-size:clamp(20px,4.8vw,28px); color:var(--gold);
     text-shadow: 0 2px 0 rgba(0,0,0,.8), 0 0 14px rgba(255,216,107,.35);
+    padding:10px;
   }
+
   #scratch{
     position:absolute; inset:0; display:block; border-radius:14px;
     box-shadow: inset 0 0 0 1px rgba(0,0,0,.35), 0 0 22px rgba(0,0,0,.25);
     touch-action:none;
+    /* Evita pintar fuera por antialias: */
+    clip-path: inset(0 round 14px);
   }
+
   .actions{display:flex; justify-content:center; margin-top:16px}
   #reclamar{
     display:none; border:0; cursor:pointer; padding:12px 22px; border-radius:999px;
@@ -84,9 +102,12 @@
       <h1>🎰 Raspadita Casino 🎰</h1>
 
       <div class="card">
-        <!-- Premio debajo del canvas (podés reemplazar por HTML/imagen dinámicos) -->
-        <div id="premio">🎁 Ganaste 500 fichas</div>
-        <canvas id="scratch"></canvas>
+        <div class="prize-wrap">
+          <!-- ✅ El premio queda fijo debajo -->
+          <div id="premio">🎁 Ganaste 500 fichas</div>
+          <!-- ✅ El canvas queda totalmente encuadrado arriba del premio -->
+          <canvas id="scratch"></canvas>
+        </div>
 
         <div class="actions">
           <button id="reclamar">Reclamar premio</button>
@@ -105,42 +126,59 @@
   const btn = document.getElementById('reclamar');
   const confettiLayer = document.getElementById('confettiLayer');
 
-  // ===== Ajustes =====
-  const BRUSH = 34;            // tamaño del “raspador” (más grande = más rápido)
-  const REVEAL_THRESHOLD = 0.5; // 50% revelado para habilitar (subí a 0.6 si querés exigir más)
+  // ===== Ajustes (podés tocar estos) =====
+  const BRUSH = 46;              // 🔧 Más grande = raspa más rápido
+  const REVEAL_THRESHOLD = 0.5;  // 0.5 = 50% revelado
+  const FOIL_URL = "";           // 🖼️ Opcional: URL de textura/imagen del “raspado”. Dejar "" para usar gris metálico.
 
-  let drawing = false, revealed = false, last = null, lastCheck = 0;
+  let drawing = false, revealed = false, last = null, lastCheck = 0, dpr = 1, foilImg = null;
 
-  // Sizing con devicePixelRatio (nítido en móviles/retina)
+  // ========== Sizing con DPR y repintado seguro ==========
   function size(){
-    const w = premio.clientWidth;
-    const h = premio.clientHeight;
-    const dpr = Math.max(1, window.devicePixelRatio || 1);
+    const wrap = canvas.parentElement;           // .prize-wrap
+    const w = wrap.clientWidth;
+    const h = wrap.clientHeight;
+    dpr = Math.max(1, window.devicePixelRatio || 1);
 
     canvas.style.width  = w + 'px';
     canvas.style.height = h + 'px';
     canvas.width  = Math.floor(w * dpr);
     canvas.height = Math.floor(h * dpr);
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-    paintCover();
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    paintCover(w, h);
   }
 
-  function paintCover(){
+  // Pinta la “capa raspable”
+  function paintCover(wcss, hcss){
     ctx.globalCompositeOperation = 'source-over';
-    const wcss = canvas.width / (window.devicePixelRatio || 1);
-    const hcss = canvas.height / (window.devicePixelRatio || 1);
-
-    const grad = ctx.createLinearGradient(0,0,wcss,hcss);
-    grad.addColorStop(0, '#b7b7b7'); grad.addColorStop(1, '#9c9c9c');
-    ctx.fillStyle = grad;
-    ctx.fillRect(0,0,wcss,hcss);
-
+    if (foilImg && foilImg.complete){
+      // Imagen de foil
+      const pattern = ctx.createPattern(foilImg, 'repeat');
+      ctx.fillStyle = pattern;
+      ctx.fillRect(0,0,wcss,hcss);
+      // sombreado sutil
+      const g = ctx.createLinearGradient(0,0,wcss,hcss);
+      g.addColorStop(0,'rgba(0,0,0,.15)'); g.addColorStop(1,'rgba(255,255,255,.08)');
+      ctx.fillStyle = g; ctx.fillRect(0,0,wcss,hcss);
+    } else {
+      // Gradiente metálico por defecto
+      const grad = ctx.createLinearGradient(0,0,wcss,hcss);
+      grad.addColorStop(0, '#bfbfbf'); grad.addColorStop(1, '#9d9d9d');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0,0,wcss,hcss);
+    }
+    // Texto guía
     ctx.fillStyle = 'rgba(0,0,0,.35)';
     ctx.font = "bold 20px Inter, Arial";
     ctx.textAlign = "center"; ctx.textBaseline = "middle";
     ctx.fillText("Raspá aquí", wcss/2, hcss/2);
+
     ctx.globalCompositeOperation = 'source-over';
+    canvas.style.opacity = 1;
+    canvas.style.display = 'block';
+    revealed = false;
+    btn.style.display = 'none';
   }
 
   function pos(e){
@@ -158,7 +196,7 @@
     // círculo actual
     ctx.beginPath(); ctx.arc(x, y, BRUSH, 0, Math.PI*2); ctx.fill();
 
-    // trazo entre el punto anterior y el actual (evita “huecos”)
+    // trazo sólido entre puntos (evita “huecos salteados”)
     if (last){
       ctx.lineWidth = BRUSH * 2;
       ctx.lineCap = 'round';
@@ -172,61 +210,66 @@
     throttleCheck();
   }
 
-  // Muestreo reducido para medir % revelado (canvas 80x50)
+  // Muestreo en offscreen para medir % (resolución baja = rápido)
   const sample = document.createElement('canvas');
-  const sctx = sample.getContext('2d');
+  const sctx = sample.getContext('2d', { willReadFrequently: true });
   sample.width = 80; sample.height = 50;
 
   function throttleCheck(){
     const now = performance.now();
-    if (now - lastCheck < 180) return; // chequea ~cada 0.18s
+    if (now - lastCheck < 140) return; // chequea ~7 veces por segundo
     lastCheck = now;
     checkReveal();
   }
 
   function checkReveal(){
-    sctx.clearRect(0,0,80,50);
-    sctx.drawImage(canvas, 0, 0, 80, 50);
-    const {data} = sctx.getImageData(0,0,80,50);
+    const wrap = canvas.parentElement;
+    const wcss = wrap.clientWidth, hcss = wrap.clientHeight;
+
+    sctx.clearRect(0,0,sample.width,sample.height);
+    // Importante: dibujar desde el canvas ya “escalado”, preserva alpha
+    sctx.drawImage(canvas, 0, 0, sample.width, sample.height);
+
+    const {data} = sctx.getImageData(0,0,sample.width,sample.height);
     let transparent = 0;
     for (let i=3; i<data.length; i+=4) if (data[i] === 0) transparent++;
-    const percent = transparent / (80*50);
+    const percent = transparent / (sample.width*sample.height);
     if (percent >= REVEAL_THRESHOLD && !revealed) reveal();
   }
 
   function confetti(){
-    for(let i=0;i<90;i++){
+    for(let i=0;i<100;i++){
       const c = document.createElement('div');
       c.className='confetto';
       c.style.left = Math.random()*100 + 'vw';
       c.style.top = '-10px';
       c.style.background = `hsl(${Math.random()*360}, 90%, 60%)`;
       const rot = (Math.random()*360)|0;
-      const dur = 6500 + Math.random()*2500;
+      const dur = 6000 + Math.random()*2500;
       const dx  = (Math.random()*2-1)*120;
       c.animate([
         { transform:`translate(0,0) rotate(${rot}deg)`, opacity:1 },
         { transform:`translate(${dx}px, 100vh) rotate(${rot+360}deg)`, opacity:.9 }
       ], { duration:dur, easing:'ease-out', fill:'forwards' });
       confettiLayer.appendChild(c);
-      setTimeout(()=>c.remove(), dur+120);
+      setTimeout(()=>c.remove(), dur+200);
     }
   }
 
   function reveal(){
     revealed = true;
-    canvas.style.transition = 'opacity .5s ease';
+    canvas.style.transition = 'opacity .45s ease';
     canvas.style.opacity = 0;
-    setTimeout(()=> (canvas.style.display='none'), 520);
+    setTimeout(()=> (canvas.style.display='none'), 470);
     btn.style.display = 'inline-block';
     confetti();
   }
 
-  // Eventos pointer
-  canvas.addEventListener('pointerdown', e=>{ drawing = true; last = null; scratch(e); });
+  // Eventos pointer (más robusto en móviles)
+  canvas.addEventListener('pointerdown', e=>{ canvas.setPointerCapture(e.pointerId); drawing = true; last = null; scratch(e); });
   canvas.addEventListener('pointermove', scratch);
-  canvas.addEventListener('pointerup',   ()=>{ drawing = false; last = null; });
-  canvas.addEventListener('pointerleave',()=>{ drawing = false; last = null; });
+  canvas.addEventListener('pointerup',   e=>{ canvas.releasePointerCapture?.(e.pointerId); drawing = false; last = null; });
+  canvas.addEventListener('pointercancel',()=>{ drawing = false; last = null; });
   canvas.style.touchAction = 'none';
 
   // Botón reclamar (ejemplo: WhatsApp)
@@ -236,20 +279,35 @@
     window.open(`https://wa.me/${numero}?text=${encodeURIComponent(msg)}`, '_blank');
   });
 
+  // Carga opcional de imagen de foil (si definís FOIL_URL)
+  function loadFoilAndSize(){
+    if (FOIL_URL){
+      foilImg = new Image();
+      foilImg.crossOrigin = "anonymous";
+      foilImg.onload = size;
+      foilImg.onerror = size;
+      foilImg.src = FOIL_URL;
+    } else {
+      foilImg = null;
+      size();
+    }
+  }
+
   // Tamaño inicial
   window.addEventListener('resize', size);
-  window.addEventListener('load', size);
-  document.addEventListener('DOMContentLoaded', size);
+  window.addEventListener('load', loadFoilAndSize);
+  document.addEventListener('DOMContentLoaded', loadFoilAndSize);
 
   /*
    * 🔗 Integración backend (si querés validar código antes de raspar):
    * 1) Pedí el código al usuario (prompt/input) y hacé:
-   *    fetch('https://TU_BACKEND/api/verificar-codigo', {
+   *    fetch('/api/verificar-codigo', {
    *      method:'POST', headers:{'Content-Type':'application/json'},
    *      body: JSON.stringify({ codigo })
    *    }).then(r=>r.json()).then(data=>{
-   *        premio.textContent = data.mensaje; // ej: "🎁 Ganaste 200 fichas" o "sin premio..."
-   *        size(); // repintar cover si cambió el layout
+   *        premio.textContent = data.mensaje; // ej: "🎁 Ganaste 200 fichas" o "Sin premio, probá en tu próxima carga"
+   *        // Si cambia el tamaño por el texto, repinta la capa raspable:
+   *        size();
    *    });
    * 2) En reveal(), podés enviar confirmación de reclamo.
    */
