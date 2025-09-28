@@ -3,11 +3,14 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Raspadita Casino</title>
+<title>RASPADITA TEAM L-5</title>
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@800;900&family=Inter:wght@400;700;800&display=swap" rel="stylesheet">
+
+<!-- Captura de pantalla de elementos (para adjuntar en WhatsApp/descargar) -->
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js" defer></script>
+
 <style>
   :root{
-    /* 🎯 Cambiá acá el fondo general */
     --bg-url: url("https://images.unsplash.com/photo-1520975922215-230f5a0627dd?q=80&w=1600&auto=format&fit=crop");
     --glass: rgba(10,14,25,.55);
     --accent: #00d5ff;
@@ -39,7 +42,7 @@
     animation: popIn .9s cubic-bezier(.2,1,.2,1) both, blink 2.8s ease-in-out infinite .9s;
   }
   @keyframes popIn{0%{transform:scale(.2);opacity:0}70%{transform:scale(1.08);opacity:1}100%{transform:scale(1)}}
-  @keyframes blink{0%,100%{filter:drop-shadow(0 2px 0 #000)}50%{filter:drop-shadow(0 2px 0 #000) drop-shadow(0 0 18px rgba(255,216,107,.55))}}
+  @keyframes blink{0%,100%{filter:drop-shadow(0 2px 0 #000)}50%{filter:drop-shadow(0 0 18px rgba(255,216,107,.55))}}
 
   .card{
     position:relative; overflow:hidden;
@@ -51,14 +54,13 @@
     backdrop-filter: blur(6px);
   }
 
-  /* Contenedor del premio: asegura que NADA se salga ni en móvil */
   .prize-wrap{
     position:relative;
     width:100%;
-    height:240px;               /* Podés subir/bajar esta altura */
+    height:240px;
     border-radius:14px;
-    overflow:hidden;            /* 🔒 Clipping riguroso */
-    isolation:isolate;          /* evita que filtros salgan fuera */
+    overflow:hidden;
+    isolation:isolate;
     border:1px solid rgba(255,255,255,.08);
     background:
       radial-gradient(60% 60% at 50% 40%, rgba(255,255,255,.06), transparent 60%),
@@ -69,25 +71,31 @@
     position:absolute; inset:0; display:grid; place-items:center;
     font-weight:800; font-size:clamp(20px,4.8vw,28px); color:var(--gold);
     text-shadow: 0 2px 0 rgba(0,0,0,.8), 0 0 14px rgba(255,216,107,.35);
-    padding:10px;
+    padding:10px; text-align:center;
   }
 
   #scratch{
     position:absolute; inset:0; display:block; border-radius:14px;
     box-shadow: inset 0 0 0 1px rgba(0,0,0,.35), 0 0 22px rgba(0,0,0,.25);
     touch-action:none;
-    /* Evita pintar fuera por antialias: */
     clip-path: inset(0 round 14px);
   }
 
-  .actions{display:flex; justify-content:center; margin-top:16px}
-  #reclamar{
-    display:none; border:0; cursor:pointer; padding:12px 22px; border-radius:999px;
-    font-weight:800; letter-spacing:.3px; background: radial-gradient(120% 120% at 0% 0%, var(--accent), var(--accent-2));
-    color:#071018; box-shadow: 0 8px 22px rgba(0,213,255,.25); transition: transform .15s ease, box-shadow .2s ease, filter .2s ease;
+  .actions{
+    display:flex; gap:10px; justify-content:center; margin-top:16px; flex-wrap:wrap;
   }
-  #reclamar:hover{ transform: translateY(-1px); box-shadow:0 12px 28px rgba(0,213,255,.32) }
-  #reclamar:active{ transform: translateY(1px); filter:brightness(.92) }
+  .btn{
+    border:0; cursor:pointer; padding:12px 18px; border-radius:999px;
+    font-weight:800; letter-spacing:.3px; display:inline-flex; align-items:center; gap:8px;
+    color:#071018; background: radial-gradient(120% 120% at 0% 0%, var(--accent), var(--accent-2));
+    box-shadow: 0 8px 22px rgba(0,213,255,.25); transition: transform .15s ease, box-shadow .2s ease, filter .2s ease;
+  }
+  .btn:hover{ transform: translateY(-1px); box-shadow:0 12px 28px rgba(0,213,255,.32) }
+  .btn:active{ transform: translateY(1px); filter:brightness(.92) }
+
+  #whatsappBtn{ display:none }  /* Se habilita cuando revelás ~50% */
+  #downloadBtn{ display:none }  /* Se habilita junto con WhatsApp */
+
   .hint{color:var(--muted); text-align:center; margin-top:8px; font-size:14px}
 
   .confetti-layer{ position: fixed; inset:0; pointer-events:none; overflow:hidden; z-index: 999; }
@@ -99,20 +107,19 @@
 
   <div class="wrap">
     <div class="stack">
-      <h1>🎰 Raspadita Casino 🎰</h1>
+      <h1>🎰 RASPADITA TEAM L-5 🎰</h1>
 
-      <div class="card">
-        <div class="prize-wrap">
-          <!-- ✅ El premio queda fijo debajo -->
+      <div class="card" id="card">
+        <div class="prize-wrap" id="prizeWrap">
           <div id="premio">🎁 Ganaste 500 fichas</div>
-          <!-- ✅ El canvas queda totalmente encuadrado arriba del premio -->
           <canvas id="scratch"></canvas>
         </div>
 
         <div class="actions">
-          <button id="reclamar">Reclamar premio</button>
+          <button id="whatsappBtn" class="btn">📲 Enviar captura por WhatsApp</button>
+          <button id="downloadBtn" class="btn" style="background:linear-gradient(90deg,#ffd86b,#fff0a6)">⬇️ Descargar captura</button>
         </div>
-        <div class="hint">Raspá con el dedo o el mouse. Al revelar ~50% se habilita el botón.</div>
+        <div class="hint">Raspá con el dedo o el mouse. Al revelar ~50% se habilitan los botones.</div>
       </div>
     </div>
   </div>
@@ -123,19 +130,23 @@
   const canvas = document.getElementById('scratch');
   const ctx = canvas.getContext('2d', { willReadFrequently: true });
   const premio = document.getElementById('premio');
-  const btn = document.getElementById('reclamar');
   const confettiLayer = document.getElementById('confettiLayer');
+  const card = document.getElementById('card');
+  const whatsappBtn = document.getElementById('whatsappBtn');
+  const downloadBtn = document.getElementById('downloadBtn');
 
-  // ===== Ajustes (podés tocar estos) =====
-  const BRUSH = 46;              // 🔧 Más grande = raspa más rápido
-  const REVEAL_THRESHOLD = 0.5;  // 0.5 = 50% revelado
-  const FOIL_URL = "";           // 🖼️ Opcional: URL de textura/imagen del “raspado”. Dejar "" para usar gris metálico.
+  // ===== Ajustes =====
+  const BRUSH = 46;
+  const REVEAL_THRESHOLD = 0.5;
+  const FOIL_URL = ""; // opcional: textura de raspado
+
+  // Número de WhatsApp (Argentina: 54 + 9 + 11 + línea)
+  const WHATSAPP_NUMBER = "5491167907135";
 
   let drawing = false, revealed = false, last = null, lastCheck = 0, dpr = 1, foilImg = null;
 
-  // ========== Sizing con DPR y repintado seguro ==========
   function size(){
-    const wrap = canvas.parentElement;           // .prize-wrap
+    const wrap = canvas.parentElement;
     const w = wrap.clientWidth;
     const h = wrap.clientHeight;
     dpr = Math.max(1, window.devicePixelRatio || 1);
@@ -149,26 +160,20 @@
     paintCover(w, h);
   }
 
-  // Pinta la “capa raspable”
   function paintCover(wcss, hcss){
     ctx.globalCompositeOperation = 'source-over';
     if (foilImg && foilImg.complete){
-      // Imagen de foil
       const pattern = ctx.createPattern(foilImg, 'repeat');
       ctx.fillStyle = pattern;
       ctx.fillRect(0,0,wcss,hcss);
-      // sombreado sutil
       const g = ctx.createLinearGradient(0,0,wcss,hcss);
       g.addColorStop(0,'rgba(0,0,0,.15)'); g.addColorStop(1,'rgba(255,255,255,.08)');
       ctx.fillStyle = g; ctx.fillRect(0,0,wcss,hcss);
     } else {
-      // Gradiente metálico por defecto
       const grad = ctx.createLinearGradient(0,0,wcss,hcss);
       grad.addColorStop(0, '#bfbfbf'); grad.addColorStop(1, '#9d9d9d');
-      ctx.fillStyle = grad;
-      ctx.fillRect(0,0,wcss,hcss);
+      ctx.fillStyle = grad; ctx.fillRect(0,0,wcss,hcss);
     }
-    // Texto guía
     ctx.fillStyle = 'rgba(0,0,0,.35)';
     ctx.font = "bold 20px Inter, Arial";
     ctx.textAlign = "center"; ctx.textBaseline = "middle";
@@ -178,7 +183,8 @@
     canvas.style.opacity = 1;
     canvas.style.display = 'block';
     revealed = false;
-    btn.style.display = 'none';
+    whatsappBtn.style.display = 'none';
+    downloadBtn.style.display = 'none';
   }
 
   function pos(e){
@@ -193,10 +199,8 @@
     const {x,y} = pos(e);
 
     ctx.globalCompositeOperation = 'destination-out';
-    // círculo actual
     ctx.beginPath(); ctx.arc(x, y, BRUSH, 0, Math.PI*2); ctx.fill();
 
-    // trazo sólido entre puntos (evita “huecos salteados”)
     if (last){
       ctx.lineWidth = BRUSH * 2;
       ctx.lineCap = 'round';
@@ -210,26 +214,20 @@
     throttleCheck();
   }
 
-  // Muestreo en offscreen para medir % (resolución baja = rápido)
   const sample = document.createElement('canvas');
   const sctx = sample.getContext('2d', { willReadFrequently: true });
   sample.width = 80; sample.height = 50;
 
   function throttleCheck(){
     const now = performance.now();
-    if (now - lastCheck < 140) return; // chequea ~7 veces por segundo
+    if (now - lastCheck < 140) return;
     lastCheck = now;
     checkReveal();
   }
 
   function checkReveal(){
-    const wrap = canvas.parentElement;
-    const wcss = wrap.clientWidth, hcss = wrap.clientHeight;
-
     sctx.clearRect(0,0,sample.width,sample.height);
-    // Importante: dibujar desde el canvas ya “escalado”, preserva alpha
     sctx.drawImage(canvas, 0, 0, sample.width, sample.height);
-
     const {data} = sctx.getImageData(0,0,sample.width,sample.height);
     let transparent = 0;
     for (let i=3; i<data.length; i+=4) if (data[i] === 0) transparent++;
@@ -261,25 +259,20 @@
     canvas.style.transition = 'opacity .45s ease';
     canvas.style.opacity = 0;
     setTimeout(()=> (canvas.style.display='none'), 470);
-    btn.style.display = 'inline-block';
     confetti();
+    // Mostrar botones de acción
+    whatsappBtn.style.display = 'inline-flex';
+    downloadBtn.style.display = 'inline-flex';
   }
 
-  // Eventos pointer (más robusto en móviles)
+  // Eventos pointer
   canvas.addEventListener('pointerdown', e=>{ canvas.setPointerCapture(e.pointerId); drawing = true; last = null; scratch(e); });
   canvas.addEventListener('pointermove', scratch);
   canvas.addEventListener('pointerup',   e=>{ canvas.releasePointerCapture?.(e.pointerId); drawing = false; last = null; });
   canvas.addEventListener('pointercancel',()=>{ drawing = false; last = null; });
   canvas.style.touchAction = 'none';
 
-  // Botón reclamar (ejemplo: WhatsApp)
-  btn.addEventListener('click', ()=>{
-    const numero = "54911XXXXXXXX"; // ← tu número sin '+'
-    const msg = `¡Hola! Acabo de ganar en la raspadita: ${premio.textContent.trim()}`;
-    window.open(`https://wa.me/${numero}?text=${encodeURIComponent(msg)}`, '_blank');
-  });
-
-  // Carga opcional de imagen de foil (si definís FOIL_URL)
+  // Carga opcional de foil
   function loadFoilAndSize(){
     if (FOIL_URL){
       foilImg = new Image();
@@ -293,23 +286,73 @@
     }
   }
 
-  // Tamaño inicial
+  // ---- Captura de la tarjeta (PNG) ----
+  async function captureCardBlob(){
+    const node = card;
+    // Espera a que html2canvas esté cargado
+    if (!window.html2canvas) {
+      alert("Cargando capturador, probá de nuevo en 1 seg.");
+      return null;
+    }
+    const canvasCap = await html2canvas(node, {
+      backgroundColor: null,
+      scale: Math.min(window.devicePixelRatio || 1, 2), // calidad sin exagerar peso
+      useCORS: true
+    });
+    return await new Promise(res => canvasCap.toBlob(res, 'image/png', 0.95));
+  }
+
+  function downloadBlob(blob, filename){
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click();
+    setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); }, 100);
+  }
+
+  // Botón: Descargar captura
+  downloadBtn.addEventListener('click', async ()=>{
+    const blob = await captureCardBlob();
+    if (!blob) return;
+    const safeText = premio.textContent.trim().replace(/\s+/g,'_').slice(0,40);
+    downloadBlob(blob, `premio_${safeText}.png`);
+  });
+
+  // Botón: Enviar por WhatsApp
+  whatsappBtn.addEventListener('click', async ()=>{
+    const mensaje = `¡Hola! Acabo de ganar en la RASPADITA TEAM L-5: ${premio.textContent.trim()}`;
+    const blob = await captureCardBlob();
+    const waURL = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(mensaje)}`;
+
+    // Intento compartir con archivo (móviles modernos)
+    try{
+      if (blob && navigator.canShare && navigator.canShare({ files: [new File([blob], 'premio.png', {type:'image/png'})] })) {
+        await navigator.share({
+          files: [new File([blob], 'premio.png', {type:'image/png'})],
+          title: 'Premio RASPADITA TEAM L-5',
+          text: mensaje
+        });
+        return;
+      }
+    }catch(e){
+      // si falla, sigue con el fallback
+    }
+
+    // Fallback: descargar imagen y abrir WhatsApp con texto
+    if (blob){
+      downloadBlob(blob, 'premio.png');
+    }
+    window.open(waURL, '_blank');
+  });
+
   window.addEventListener('resize', size);
   window.addEventListener('load', loadFoilAndSize);
   document.addEventListener('DOMContentLoaded', loadFoilAndSize);
 
   /*
-   * 🔗 Integración backend (si querés validar código antes de raspar):
-   * 1) Pedí el código al usuario (prompt/input) y hacé:
-   *    fetch('/api/verificar-codigo', {
-   *      method:'POST', headers:{'Content-Type':'application/json'},
-   *      body: JSON.stringify({ codigo })
-   *    }).then(r=>r.json()).then(data=>{
-   *        premio.textContent = data.mensaje; // ej: "🎁 Ganaste 200 fichas" o "Sin premio, probá en tu próxima carga"
-   *        // Si cambia el tamaño por el texto, repinta la capa raspable:
-   *        size();
-   *    });
-   * 2) En reveal(), podés enviar confirmación de reclamo.
+   * Integración backend (opcional):
+   * - Validar código antes de raspar (POST /api/verificar-codigo)
+   * - Enviar confirmación de reclamo cuando se revele
    */
 </script>
 </body>
