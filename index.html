@@ -6,12 +6,13 @@
 <title>RASPADITA TEAM L-5</title>
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@800;900&family=Inter:wght@400;700;800&display=swap" rel="stylesheet">
 
-<!-- Captura de pantalla de elementos (para adjuntar en WhatsApp/descargar) -->
+<!-- Librería para captura de pantalla -->
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js" defer></script>
 
 <style>
   :root{
-    --bg-url: url("https://images.unsplash.com/photo-1520975922215-230f5a0627dd?q=80&w=1600&auto=format&fit=crop");
+    /* 🎯 Fondo personalizado */
+    --bg-url: url("https://raw.githubusercontent.com/tammistf/equipo-tf-ruleta/main/f1ec4f7e-3b11-414c-bb1c-3db302c97c66.jpg");
     --glass: rgba(10,14,25,.55);
     --accent: #00d5ff;
     --accent-2: #7b5cff;
@@ -23,10 +24,7 @@
   body{
     margin:0; color:#eaf2ff;
     font-family: Inter, system-ui, Segoe UI, Roboto, Arial, sans-serif;
-    background:
-      radial-gradient(1200px 600px at 70% -10%, rgba(255,60,120,.20), transparent 60%),
-      radial-gradient(900px 500px at -10% 110%, rgba(0,213,255,.18), transparent 60%),
-      #0b0f1a;
+    background:#0b0f1a;
   }
   .bg{position:fixed; inset:0; z-index:-2; background: var(--bg-url) center/cover no-repeat fixed; filter:brightness(.85) saturate(1.05)}
   .bg::after{content:""; position:absolute; inset:0; background:linear-gradient(180deg, rgba(8,10,18,.55), rgba(8,10,18,.78)); backdrop-filter: blur(2px)}
@@ -62,9 +60,7 @@
     overflow:hidden;
     isolation:isolate;
     border:1px solid rgba(255,255,255,.08);
-    background:
-      radial-gradient(60% 60% at 50% 40%, rgba(255,255,255,.06), transparent 60%),
-      rgba(0,0,0,.35);
+    background:rgba(0,0,0,.35);
   }
 
   #premio{
@@ -93,8 +89,8 @@
   .btn:hover{ transform: translateY(-1px); box-shadow:0 12px 28px rgba(0,213,255,.32) }
   .btn:active{ transform: translateY(1px); filter:brightness(.92) }
 
-  #whatsappBtn{ display:none }  /* Se habilita cuando revelás ~50% */
-  #downloadBtn{ display:none }  /* Se habilita junto con WhatsApp */
+  #whatsappBtn{ display:none }
+  #downloadBtn{ display:none }
 
   .hint{color:var(--muted); text-align:center; margin-top:8px; font-size:14px}
 
@@ -135,15 +131,11 @@
   const whatsappBtn = document.getElementById('whatsappBtn');
   const downloadBtn = document.getElementById('downloadBtn');
 
-  // ===== Ajustes =====
   const BRUSH = 46;
   const REVEAL_THRESHOLD = 0.5;
-  const FOIL_URL = ""; // opcional: textura de raspado
-
-  // Número de WhatsApp (Argentina: 54 + 9 + 11 + línea)
   const WHATSAPP_NUMBER = "5491167907135";
 
-  let drawing = false, revealed = false, last = null, lastCheck = 0, dpr = 1, foilImg = null;
+  let drawing = false, revealed = false, last = null, lastCheck = 0, dpr = 1;
 
   function size(){
     const wrap = canvas.parentElement;
@@ -162,18 +154,10 @@
 
   function paintCover(wcss, hcss){
     ctx.globalCompositeOperation = 'source-over';
-    if (foilImg && foilImg.complete){
-      const pattern = ctx.createPattern(foilImg, 'repeat');
-      ctx.fillStyle = pattern;
-      ctx.fillRect(0,0,wcss,hcss);
-      const g = ctx.createLinearGradient(0,0,wcss,hcss);
-      g.addColorStop(0,'rgba(0,0,0,.15)'); g.addColorStop(1,'rgba(255,255,255,.08)');
-      ctx.fillStyle = g; ctx.fillRect(0,0,wcss,hcss);
-    } else {
-      const grad = ctx.createLinearGradient(0,0,wcss,hcss);
-      grad.addColorStop(0, '#bfbfbf'); grad.addColorStop(1, '#9d9d9d');
-      ctx.fillStyle = grad; ctx.fillRect(0,0,wcss,hcss);
-    }
+    const grad = ctx.createLinearGradient(0,0,wcss,hcss);
+    grad.addColorStop(0, '#bfbfbf'); grad.addColorStop(1, '#9d9d9d');
+    ctx.fillStyle = grad; ctx.fillRect(0,0,wcss,hcss);
+
     ctx.fillStyle = 'rgba(0,0,0,.35)';
     ctx.font = "bold 20px Inter, Arial";
     ctx.textAlign = "center"; ctx.textBaseline = "middle";
@@ -260,43 +244,21 @@
     canvas.style.opacity = 0;
     setTimeout(()=> (canvas.style.display='none'), 470);
     confetti();
-    // Mostrar botones de acción
     whatsappBtn.style.display = 'inline-flex';
     downloadBtn.style.display = 'inline-flex';
   }
 
-  // Eventos pointer
   canvas.addEventListener('pointerdown', e=>{ canvas.setPointerCapture(e.pointerId); drawing = true; last = null; scratch(e); });
   canvas.addEventListener('pointermove', scratch);
   canvas.addEventListener('pointerup',   e=>{ canvas.releasePointerCapture?.(e.pointerId); drawing = false; last = null; });
   canvas.addEventListener('pointercancel',()=>{ drawing = false; last = null; });
   canvas.style.touchAction = 'none';
 
-  // Carga opcional de foil
-  function loadFoilAndSize(){
-    if (FOIL_URL){
-      foilImg = new Image();
-      foilImg.crossOrigin = "anonymous";
-      foilImg.onload = size;
-      foilImg.onerror = size;
-      foilImg.src = FOIL_URL;
-    } else {
-      foilImg = null;
-      size();
-    }
-  }
-
-  // ---- Captura de la tarjeta (PNG) ----
   async function captureCardBlob(){
-    const node = card;
-    // Espera a que html2canvas esté cargado
-    if (!window.html2canvas) {
-      alert("Cargando capturador, probá de nuevo en 1 seg.");
-      return null;
-    }
-    const canvasCap = await html2canvas(node, {
+    if (!window.html2canvas) return null;
+    const canvasCap = await html2canvas(card, {
       backgroundColor: null,
-      scale: Math.min(window.devicePixelRatio || 1, 2), // calidad sin exagerar peso
+      scale: Math.min(window.devicePixelRatio || 1, 2),
       useCORS: true
     });
     return await new Promise(res => canvasCap.toBlob(res, 'image/png', 0.95));
@@ -310,35 +272,16 @@
     setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); }, 100);
   }
 
-  // Botón: Descargar captura
   downloadBtn.addEventListener('click', async ()=>{
     const blob = await captureCardBlob();
     if (!blob) return;
-    const safeText = premio.textContent.trim().replace(/\s+/g,'_').slice(0,40);
-    downloadBlob(blob, `premio_${safeText}.png`);
+    downloadBlob(blob, 'premio.png');
   });
 
-  // Botón: Enviar por WhatsApp
   whatsappBtn.addEventListener('click', async ()=>{
     const mensaje = `¡Hola! Acabo de ganar en la RASPADITA TEAM L-5: ${premio.textContent.trim()}`;
     const blob = await captureCardBlob();
     const waURL = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(mensaje)}`;
-
-    // Intento compartir con archivo (móviles modernos)
-    try{
-      if (blob && navigator.canShare && navigator.canShare({ files: [new File([blob], 'premio.png', {type:'image/png'})] })) {
-        await navigator.share({
-          files: [new File([blob], 'premio.png', {type:'image/png'})],
-          title: 'Premio RASPADITA TEAM L-5',
-          text: mensaje
-        });
-        return;
-      }
-    }catch(e){
-      // si falla, sigue con el fallback
-    }
-
-    // Fallback: descargar imagen y abrir WhatsApp con texto
     if (blob){
       downloadBlob(blob, 'premio.png');
     }
@@ -346,14 +289,8 @@
   });
 
   window.addEventListener('resize', size);
-  window.addEventListener('load', loadFoilAndSize);
-  document.addEventListener('DOMContentLoaded', loadFoilAndSize);
-
-  /*
-   * Integración backend (opcional):
-   * - Validar código antes de raspar (POST /api/verificar-codigo)
-   * - Enviar confirmación de reclamo cuando se revele
-   */
+  window.addEventListener('load', size);
+  document.addEventListener('DOMContentLoaded', size);
 </script>
 </body>
 </html>
