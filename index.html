@@ -1,132 +1,257 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Raspadita Casino</title>
-  <style>
-    body {
-      background: #111;
-      color: #fff;
-      font-family: Arial, sans-serif;
-      text-align: center;
-      margin: 0;
-      padding: 0;
-    }
-    h1 {
-      margin-top: 20px;
-      font-size: 32px;
-      color: #00ccff;
-      text-shadow: 0 0 5px #000;
-    }
-    #scratch-container {
-      position: relative;
-      width: 300px;
-      height: 200px;
-      margin: 40px auto;
-      border: 2px solid #00ccff;
-      border-radius: 12px;
-      overflow: hidden;
-      box-shadow: 0 0 20px #000;
-    }
-    #premio {
-      width: 100%;
-      height: 100%;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      font-size: 24px;
-      font-weight: bold;
-      color: gold;
-      background: #222;
-    }
-    #scratch {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-    }
-    #reclamar {
-      display: none;
-      margin-top: 20px;
-      padding: 12px 24px;
-      background: #00ccff;
-      color: #000;
-      border: none;
-      border-radius: 8px;
-      cursor: pointer;
-      font-size: 18px;
-      font-weight: bold;
-    }
-  </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Raspadita Casino</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    /* 🔁 Cambiá acá la imagen de fondo */
+    --bg-url: url("https://images.unsplash.com/photo-1543007630-9710e4a00a20?q=80&w=1600&auto=format&fit=crop"); 
+    --glass: rgba(10,14,25,.55);
+    --stroke: rgba(0,255,255,.45);
+    --accent: #00d5ff;
+    --accent-2: #7b5cff;
+    --gold: #ffd86b;
+    --muted: #a8b1c3;
+  }
+
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0; color:#eaf2ff;
+    font-family: Inter, system-ui, Segoe UI, Roboto, Arial, sans-serif;
+    background:
+      radial-gradient(1200px 600px at 70% -10%, rgba(255,60,120,.25), transparent 60%),
+      radial-gradient(900px 500px at -10% 110%, rgba(0,213,255,.2), transparent 60%),
+      #0b0f1a;
+  }
+  /* Fondo con imagen + overlay */
+  .bg{
+    position:fixed; inset:0; z-index:-2;
+    background: var(--bg-url) center/cover no-repeat fixed;
+    filter: saturate(1.05) contrast(1.05) brightness(.9);
+  }
+  .bg::after{
+    content:""; position:absolute; inset:0; 
+    background:linear-gradient(180deg, rgba(8,10,18,.55), rgba(8,10,18,.75));
+    backdrop-filter: blur(2px);
+  }
+
+  /* Layout */
+  .wrap{min-height:100%; display:grid; place-items:center; padding:28px}
+  .stack{width:min(520px, 92vw)}
+
+  /* Título animado */
+  h1{
+    margin:0 0 16px;
+    font-family: Orbitron, Inter, system-ui, sans-serif;
+    font-weight:900; text-align:center;
+    letter-spacing:1px;
+    font-size: clamp(28px, 6vw, 52px);
+    background: linear-gradient(90deg, #fff, var(--gold), #fff);
+    -webkit-background-clip: text; background-clip:text; color: transparent;
+    filter: drop-shadow(0 2px 0 #000) drop-shadow(0 0 12px rgba(0,0,0,.6));
+    animation: popIn .9s cubic-bezier(.2,1,.2,1) both, blink 2.8s ease-in-out infinite .9s;
+  }
+  @keyframes popIn{0%{transform:scale(.2); opacity:0}70%{transform:scale(1.08); opacity:1}100%{transform:scale(1)}}
+  @keyframes blink{0%,100%{filter:drop-shadow(0 2px 0 #000)}50%{filter:drop-shadow(0 2px 0 #000) drop-shadow(0 0 18px rgba(255,216,107,.55))}}
+
+  /* Card glass */
+  .card{
+    position:relative;
+    background: var(--glass);
+    border:1px solid rgba(255,255,255,.08);
+    border-radius: 18px;
+    padding:22px;
+    box-shadow:
+      0 10px 40px rgba(0,0,0,.45),
+      inset 0 0 0 1px rgba(255,255,255,.04);
+    backdrop-filter: blur(6px);
+  }
+  .glow{
+    position:absolute; inset:-1px; border-radius:inherit; pointer-events:none;
+    box-shadow: 0 0 0 2px rgba(0,255,255,.22), 0 0 30px rgba(0,213,255,.12);
+  }
+
+  /* Premio (debajo del canvas) */
+  #premio{
+    position:relative;
+    width:100%; height:240px;
+    display:grid; place-items:center;
+    border-radius:14px;
+    background: radial-gradient(60% 60% at 50% 40%, rgba(255,255,255,.06), transparent 60%), rgba(0,0,0,.35);
+    border:1px solid rgba(255,255,255,.08);
+    font-weight:800; font-size:clamp(20px, 4.8vw, 28px);
+    color: var(--gold);
+    text-shadow: 0 2px 0 rgba(0,0,0,.8), 0 0 14px rgba(255,216,107,.35);
+    overflow:hidden;
+  }
+  /* Canvas raspable */
+  #scratch{
+    position:absolute; inset:0; border-radius:14px;
+    box-shadow: inset 0 0 0 1px rgba(0,0,0,.35), 0 0 22px rgba(0,0,0,.25);
+    touch-action:none; /* para mobile */
+  }
+
+  /* Botón reclamar */
+  .actions{display:flex; justify-content:center; margin-top:16px}
+  #reclamar{
+    display:none; border:0; cursor:pointer;
+    padding:12px 22px; border-radius:999px;
+    font-weight:800; letter-spacing:.3px;
+    background: radial-gradient(120% 120% at 0% 0%, var(--accent), var(--accent-2));
+    color:#071018; box-shadow: 0 8px 22px rgba(0,213,255,.25);
+    transition: transform .15s ease, box-shadow .2s ease, filter .2s ease;
+  }
+  #reclamar:hover{ transform: translateY(-1px); box-shadow:0 12px 28px rgba(0,213,255,.32) }
+  #reclamar:active{ transform: translateY(1px); filter:brightness(.92) }
+
+  .hint{color:var(--muted); text-align:center; margin-top:8px; font-size:14px}
+
+  /* Confetti */
+  .confetti-layer{ position: fixed; inset:0; pointer-events:none; overflow:hidden; z-index: 999; }
+  .confetto{position:absolute; width:10px; height:14px; border-radius:2px; opacity:.95}
+</style>
 </head>
 <body>
-  <h1>🎰 Raspadita Casino 🎰</h1>
+  <div class="bg"></div>
 
-  <div id="scratch-container">
-    <div id="premio">🎁 Ganaste 500 fichas</div>
-    <canvas id="scratch"></canvas>
+  <div class="wrap">
+    <div class="stack">
+      <h1>🎰 Raspadita Casino 🎰</h1>
+
+      <div class="card">
+        <div class="glow"></div>
+
+        <!-- Premio debajo del canvas (podés reemplazar por imagen/HTML dinámico) -->
+        <div id="premio">🎁 Ganaste 500 fichas</div>
+        <canvas id="scratch"></canvas>
+
+        <div class="actions">
+          <button id="reclamar">Reclamar premio</button>
+        </div>
+        <div class="hint">Raspá con el dedo o el mouse. Al revelar +60% se habilita el botón.</div>
+      </div>
+    </div>
   </div>
 
-  <button id="reclamar">Reclamar premio</button>
+  <!-- Capa para confetti -->
+  <div class="confetti-layer" id="confettiLayer"></div>
 
-  <script>
-    const canvas = document.getElementById('scratch');
-    const ctx = canvas.getContext('2d');
-    const premio = document.getElementById('premio');
-    const reclamar = document.getElementById('reclamar');
-    let isDrawing = false, revelado = false;
+<script>
+  const canvas = document.getElementById('scratch');
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  const premio = document.getElementById('premio');
+  const btn = document.getElementById('reclamar');
+  const confettiLayer = document.getElementById('confettiLayer');
 
-    function resizeCanvas() {
-      canvas.width = canvas.offsetWidth;
-      canvas.height = canvas.offsetHeight;
-      ctx.fillStyle = '#999'; // capa gris
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.fillStyle = '#000';
-      ctx.font = "20px Arial";
-      ctx.fillText("Raspá aquí", 90, 100);
+  let drawing = false, revealed = false, lastCheck = 0;
+
+  // Sizing & paint cover
+  function size(){
+    canvas.width  = premio.clientWidth;
+    canvas.height = premio.clientHeight;
+
+    // Pintamos capa gris con un mini “raspá aquí”
+    ctx.globalCompositeOperation = 'source-over';
+    const grad = ctx.createLinearGradient(0,0,canvas.width,canvas.height);
+    grad.addColorStop(0, '#b7b7b7'); grad.addColorStop(1, '#9c9c9c');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+
+    ctx.fillStyle = 'rgba(0,0,0,.35)';
+    ctx.font = "bold 20px Inter, Arial";
+    ctx.textAlign = "center";
+    ctx.fillText("Raspá aquí", canvas.width/2, canvas.height/2);
+  }
+  size();
+  addEventListener('resize', size);
+
+  // Helpers
+  const pos = e => {
+    const r = canvas.getBoundingClientRect();
+    const cx = (e.touches ? e.touches[0].clientX : e.clientX) - r.left;
+    const cy = (e.touches ? e.touches[0].clientY : e.clientY) - r.top;
+    return {x: cx, y: cy};
+  };
+
+  function scratch(e){
+    if (!drawing || revealed) return;
+    const {x,y} = pos(e);
+    ctx.globalCompositeOperation = 'destination-out';
+    ctx.beginPath();
+    ctx.arc(x, y, 22, 0, Math.PI*2);
+    ctx.fill();
+
+    const now = performance.now();
+    if (now - lastCheck > 250) { lastCheck = now; checkReveal(); }
+  }
+
+  function checkReveal(){
+    const { data } = ctx.getImageData(0,0,canvas.width,canvas.height);
+    let transparent = 0;
+    for (let i=3; i<data.length; i+=4) if (data[i] === 0) transparent++;
+    const percent = transparent / (canvas.width * canvas.height);
+    if (percent > 0.60 && !revealed) reveal();
+  }
+
+  function reveal(){
+    revealed = true;
+    canvas.style.transition = 'opacity .5s ease';
+    canvas.style.opacity = 0;
+    setTimeout(()=> (canvas.style.display='none'), 520);
+    btn.style.display = 'inline-block';
+    confetti();
+  }
+
+  // Confetti lindo
+  function confetti(){
+    for(let i=0;i<90;i++){
+      const c = document.createElement('div');
+      c.className='confetto';
+      c.style.left = Math.random()*100 + 'vw';
+      c.style.top = '-10px';
+      c.style.background = `hsl(${Math.random()*360}, 90%, 60%)`;
+
+      const rot = (Math.random()*360)|0;
+      const dur = 6500 + Math.random()*2500;
+      const dx  = (Math.random()*2-1)*120;
+
+      c.animate([
+        { transform:`translate(0,0) rotate(${rot}deg)`, opacity:1 },
+        { transform:`translate(${dx}px, 100vh) rotate(${rot+360}deg)`, opacity:.9 }
+      ], { duration:dur, easing:'ease-out', fill:'forwards' });
+
+      confettiLayer.appendChild(c);
+      setTimeout(()=>c.remove(), dur+120);
     }
-    resizeCanvas();
-    window.addEventListener('resize', resizeCanvas);
+  }
 
-    function draw(e) {
-      if (!isDrawing || revelado) return;
-      const rect = canvas.getBoundingClientRect();
-      const x = (e.clientX || e.touches[0].clientX) - rect.left;
-      const y = (e.clientY || e.touches[0].clientY) - rect.top;
-      ctx.globalCompositeOperation = 'destination-out';
-      ctx.beginPath();
-      ctx.arc(x, y, 20, 0, Math.PI * 2);
-      ctx.fill();
-      checkReveal();
-    }
+  // Eventos pointer (mouse + touch)
+  canvas.addEventListener('pointerdown', e=>{ drawing = true; scratch(e); });
+  canvas.addEventListener('pointermove', scratch);
+  canvas.addEventListener('pointerup',   ()=> drawing=false);
+  canvas.addEventListener('pointerleave',()=> drawing=false);
+  canvas.style.touchAction = 'none';
 
-    function checkReveal() {
-      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      let transparent = 0;
-      for (let i = 3; i < imageData.data.length; i += 4) {
-        if (imageData.data[i] === 0) transparent++;
-      }
-      const porcentaje = transparent / (canvas.width * canvas.height) * 100;
-      if (porcentaje > 60 && !revelado) {
-        revelado = true;
-        canvas.style.transition = "opacity .5s";
-        canvas.style.opacity = 0;
-        reclamar.style.display = "inline-block";
-      }
-    }
+  // Acción reclamar (acá podés enganchar tu backend o WhatsApp)
+  btn.addEventListener('click', ()=>{
+    // Ejemplo: abrir WhatsApp con mensaje
+    const numero = "54911XXXXXXXX"; // ← cambiá por tu número
+    const msg = `¡Hola! Acabo de ganar en la raspadita: ${premio.textContent.trim()}`;
+    window.open(`https://wa.me/${numero}?text=${encodeURIComponent(msg)}`, '_blank');
+  });
 
-    canvas.addEventListener('mousedown', () => isDrawing = true);
-    canvas.addEventListener('mouseup', () => isDrawing = false);
-    canvas.addEventListener('mousemove', draw);
-    canvas.addEventListener('touchstart', () => isDrawing = true);
-    canvas.addEventListener('touchend', () => isDrawing = false);
-    canvas.addEventListener('touchmove', draw);
-
-    reclamar.addEventListener('click', () => {
-      alert("Premio reclamado 🎉");
-    });
-  </script>
+  /* 
+   * 🔗 Para usar con tu backend de códigos:
+   * 1) Antes de mostrar la raspadita, hacé fetch a /api/verificar-codigo
+   * 2) Si estado === "valido" o "invalido", setear el texto del premio:
+   *    premio.textContent = data.mensaje;  // ej: "🎁 Ganaste 200 fichas" o "sin premio..."
+   * 3) Llamar a size() para repintar el cover si cambió el tamaño.
+   * 4) Listo: el canvas funciona igual, y al revelar habilita el botón.
+   */
+</script>
 </body>
 </html>
