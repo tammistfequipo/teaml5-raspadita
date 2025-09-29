@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>RASPADITA TEAM L-5</title>
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@800;900&family=Inter:wght@400;700;800&display=swap" rel="stylesheet">
+<meta name="referrer" content="strict-origin-when-cross-origin">
 
 <!-- Para capturar screenshot del premio -->
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js" defer></script>
@@ -35,7 +36,6 @@
     margin:0 0 18px; text-align:center;
     font-family: Orbitron, Inter, system-ui, sans-serif; font-weight:900; letter-spacing:1px;
     font-size:clamp(28px, 6vw, 52px);
-
     color: #ff1a1a;
     text-shadow:
       -1px -1px 2px #fff,
@@ -47,37 +47,19 @@
       0 0 20px #ff1a1a,
       0 0 40px #ff0000,
       0 0 80px #ff0000;
-
     animation: popIn .9s cubic-bezier(.2,1,.2,1) both, neonBlink 2s infinite;
   }
-  @keyframes popIn {
-    0%{transform:scale(.2);opacity:0}
-    70%{transform:scale(1.08);opacity:1}
-    100%{transform:scale(1)}
-  }
+  @keyframes popIn { 0%{transform:scale(.2);opacity:0} 70%{transform:scale(1.08);opacity:1} 100%{transform:scale(1)} }
   @keyframes neonBlink {
     0%,100%{
       text-shadow:
-        -1px -1px 2px #fff,
-        1px -1px 2px #fff,
-        -1px 1px 2px #fff,
-        1px 1px 2px #fff,
-        0 0 5px #ff1a1a,
-        0 0 10px #ff1a1a,
-        0 0 20px #ff1a1a,
-        0 0 40px #ff0000,
-        0 0 80px #ff0000;
+        -1px -1px 2px #fff, 1px -1px 2px #fff, -1px 1px 2px #fff, 1px 1px 2px #fff,
+        0 0 5px #ff1a1a, 0 0 10px #ff1a1a, 0 0 20px #ff1a1a, 0 0 40px #ff0000, 0 0 80px #ff0000;
     }
     50%{
       text-shadow:
-        -1px -1px 2px #fff,
-        1px -1px 2px #fff,
-        -1px 1px 2px #fff,
-        1px 1px 2px #fff,
-        0 0 2px #ff1a1a,
-        0 0 6px #ff3333,
-        0 0 12px #ff3333,
-        0 0 24px #ff1a1a;
+        -1px -1px 2px #fff, 1px -1px 2px #fff, -1px 1px 2px #fff, 1px 1px 2px #fff,
+        0 0 2px #ff1a1a, 0 0 6px #ff3333, 0 0 12px #ff3333, 0 0 24px #ff1a1a;
     }
   }
 
@@ -108,6 +90,16 @@
     font-weight:800; font-size:clamp(20px,4.8vw,28px); color:var(--gold);
     text-align:center; padding:12px;
     text-shadow: 0 2px 0 rgba(0,0,0,.8), 0 0 14px rgba(255,216,107,.35);
+  }
+  /* Sello fecha/hora + código (se muestra solo con premio) */
+  .stamp{
+    position:absolute; right:10px; bottom:8px;
+    padding:6px 10px; font-size:12px; line-height:1.25;
+    color:#eaf2ff; background:rgba(0,0,0,.55);
+    border:1px solid rgba(255,255,255,.18);
+    border-radius:10px; backdrop-filter: blur(4px);
+    box-shadow: 0 4px 14px rgba(0,0,0,.35), inset 0 0 0 1px rgba(255,255,255,.06);
+    display:none;
   }
   #scratch{
     position:absolute; inset:0; display:block;
@@ -141,6 +133,7 @@
       <div class="card" id="card">
         <div class="prize-wrap">
           <div id="premio">🎁 Cargando premio...</div>
+          <div id="stamp" class="stamp"></div><!-- sello -->
           <canvas id="scratch"></canvas>
         </div>
 
@@ -154,75 +147,156 @@
 
 <script>
   // ======== Elementos ========
-  const card = document.getElementById('card');
+  const card   = document.getElementById('card');
   const canvas = document.getElementById('scratch');
-  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  const ctx    = canvas.getContext('2d', { willReadFrequently: true });
   const premio = document.getElementById('premio');
+  const stamp  = document.getElementById('stamp');
   const waBtn  = document.getElementById('whatsappBtn');
 
-  // ======== Backend: decide si gana o no ========
+  // ======== Estado ========
   let currentWin = false;
+  const WHATSAPP_NUMBER = "5491167907135";
+
   function isWinningMessage(text){ return /ganaste/i.test(text || ""); }
-  function getClientId(){
-    const k = 'raspadita:clientId';
-    let id = localStorage.getItem(k);
-    if (!id){
-      id = 'cid_' + Math.random().toString(36).slice(2) + Date.now().toString(36);
-      localStorage.setItem(k, id);
-    }
-    return id;
-  }
+
+  // ======== Lógica de premio (pide al backend) ========
   async function prepararPremio(){
-    const dayKey = new Date().toISOString().slice(0,10);
-    const playedKey = 'raspadita:lastPlayDay';
-    if (localStorage.getItem(playedKey) === dayKey){
-      premio.textContent = "⏳ Ya jugaste hoy. Volvé mañana."; currentWin = false; return;
-    }
     try{
-      const r = await fetch('/api/sorteo',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ clientId: getClientId() })});
+      const r = await fetch('/api/sorteo', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'}
+      });
       const data = await r.json();
       if (!data.ok) throw new Error(data.error || 'error');
+
       premio.textContent = data.mensaje;
       currentWin = isWinningMessage(data.mensaje);
-      localStorage.setItem(playedKey, dayKey);
-    }catch(e){ premio.textContent = "⚠️ Intentalo de nuevo en un momento."; currentWin = false; }
+
+      if (currentWin) {
+        // data.nowUtc = "2025-09-28T01:23:45.678Z" (servidor)
+        const dt  = new Date(data.nowUtc);
+        const pad = n=>n.toString().padStart(2,'0');
+        const stampText =
+          `Emitido (UTC): ${pad(dt.getUTCDate())}/${pad(dt.getUTCMonth()+1)}/${dt.getUTCFullYear()} ` +
+          `${pad(dt.getUTCHours())}:${pad(dt.getUTCMinutes())}:${pad(dt.getUTCSeconds())}\n` +
+          `Código: ${data.code}`;
+        stamp.textContent = stampText;
+        stamp.style.display = 'inline-block';
+      } else {
+        stamp.style.display = 'none';
+      }
+    }catch(e){
+      premio.textContent = "⚠️ Intentalo de nuevo en un momento.";
+      currentWin = false;
+      stamp.style.display = 'none';
+    }
   }
   document.addEventListener('DOMContentLoaded', prepararPremio);
 
   // ======== Raspado ========
   const BRUSH=42, REVEAL_THRESHOLD=0.5;
   let drawing=false, revealed=false, last=null, lastCheck=0, dpr=1;
-  function size(){ const wrap=document.querySelector('.prize-wrap'); const w=wrap.clientWidth,h=wrap.clientHeight; dpr=Math.max(1,window.devicePixelRatio||1);
-    canvas.style.width=w+'px';canvas.style.height=h+'px';canvas.width=Math.floor(w*dpr);canvas.height=Math.floor(h*dpr);ctx.setTransform(dpr,0,0,dpr,0,0);
-    paintCover(w,h);}
-  function paintCover(w,h){ctx.globalCompositeOperation='source-over';const grad=ctx.createLinearGradient(0,0,w,h);grad.addColorStop(0,'#b7b7b7');grad.addColorStop(1,'#9c9c9c');
-    ctx.fillStyle=grad;ctx.fillRect(0,0,w,h);ctx.fillStyle='rgba(0,0,0,.35)';ctx.font="bold 20px Inter, Arial";ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillText("Raspá aquí",w/2,h/2);
-    revealed=false;waBtn.style.display='none';canvas.style.opacity=1;canvas.style.display='block';}
-  function pos(e){const r=canvas.getBoundingClientRect();const x=(e.touches?e.touches[0].clientX:e.clientX)-r.left;const y=(e.touches?e.touches[0].clientY:e.clientY)-r.top;return {x,y};}
-  function scratch(e){if(!drawing||revealed)return;const {x,y}=pos(e);ctx.globalCompositeOperation='destination-out';ctx.beginPath();ctx.arc(x,y,BRUSH,0,Math.PI*2);ctx.fill();
-    if(last){ctx.lineWidth=BRUSH*2;ctx.lineCap='round';ctx.beginPath();ctx.moveTo(last.x,last.y);ctx.lineTo(x,y);ctx.stroke();}last={x,y};throttleCheck();}
-  const sample=document.createElement('canvas');const sctx=sample.getContext('2d',{willReadFrequently:true});sample.width=80;sample.height=50;
-  function throttleCheck(){const now=performance.now();if(now-lastCheck<160)return;lastCheck=now;checkReveal();}
-  function checkReveal(){sctx.clearRect(0,0,sample.width,sample.height);sctx.drawImage(canvas,0,0,sample.width,sample.height);const {data}=sctx.getImageData(0,0,sample.width,sample.height);
-    let transparent=0;for(let i=3;i<data.length;i+=4) if(data[i]===0) transparent++;const percent=transparent/(sample.width*sample.height);if(percent>=REVEAL_THRESHOLD&&!revealed) reveal();}
-  function reveal(){revealed=true;canvas.style.transition='opacity .45s ease';canvas.style.opacity=0;setTimeout(()=> (canvas.style.display='none'),470);
-    if(currentWin){waBtn.style.display='inline-block';}else{waBtn.style.display='none';}}
+
+  function size(){
+    const wrap=document.querySelector('.prize-wrap');
+    const w=wrap.clientWidth, h=wrap.clientHeight;
+    dpr=Math.max(1, window.devicePixelRatio||1);
+    canvas.style.width=w+'px'; canvas.style.height=h+'px';
+    canvas.width=Math.floor(w*dpr); canvas.height=Math.floor(h*dpr);
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    paintCover(w,h);
+  }
+
+  function paintCover(w,h){
+    ctx.globalCompositeOperation='source-over';
+    const grad=ctx.createLinearGradient(0,0,w,h);
+    grad.addColorStop(0,'#b7b7b7'); grad.addColorStop(1,'#9c9c9c');
+    ctx.fillStyle=grad; ctx.fillRect(0,0,w,h);
+    ctx.fillStyle='rgba(0,0,0,.35)';
+    ctx.font="bold 20px Inter, Arial"; ctx.textAlign="center"; ctx.textBaseline="middle";
+    ctx.fillText("Raspá aquí", w/2, h/2);
+
+    revealed=false;
+    waBtn.style.display='none';
+    canvas.style.opacity=1;
+    canvas.style.display='block';
+  }
+
+  function pos(e){ const r=canvas.getBoundingClientRect();
+    const x=(e.touches?e.touches[0].clientX:e.clientX)-r.left;
+    const y=(e.touches?e.touches[0].clientY:e.clientY)-r.top; return {x,y}; }
+
+  function scratch(e){
+    if(!drawing||revealed) return;
+    const {x,y}=pos(e);
+    ctx.globalCompositeOperation='destination-out';
+    ctx.beginPath(); ctx.arc(x,y,BRUSH,0,Math.PI*2); ctx.fill();
+    if(last){ ctx.lineWidth=BRUSH*2; ctx.lineCap='round';
+      ctx.beginPath(); ctx.moveTo(last.x,last.y); ctx.lineTo(x,y); ctx.stroke(); }
+    last={x,y}; throttleCheck();
+  }
+
+  const sample=document.createElement('canvas');
+  const sctx=sample.getContext('2d', { willReadFrequently:true });
+  sample.width=80; sample.height=50;
+
+  function throttleCheck(){
+    const now=performance.now(); if(now-lastCheck<160) return;
+    lastCheck=now; checkReveal();
+  }
+  function checkReveal(){
+    sctx.clearRect(0,0,sample.width,sample.height);
+    sctx.drawImage(canvas,0,0,sample.width,sample.height);
+    const {data}=sctx.getImageData(0,0,sample.width,sample.height);
+    let transparent=0; for(let i=3;i<data.length;i+=4) if(data[i]===0) transparent++;
+    const percent=transparent/(sample.width*sample.height);
+    if(percent>=REVEAL_THRESHOLD && !revealed) reveal();
+  }
+
+  function reveal(){
+    revealed=true;
+    canvas.style.transition='opacity .45s ease';
+    canvas.style.opacity=0;
+    setTimeout(()=> (canvas.style.display='none'), 470);
+    if (currentWin) waBtn.style.display='inline-block';
+  }
+
   canvas.addEventListener('pointerdown', e=>{canvas.setPointerCapture?.(e.pointerId);drawing=true;last=null;scratch(e);});
-  canvas.addEventListener('pointermove',scratch);
-  canvas.addEventListener('pointerup',e=>{canvas.releasePointerCapture?.(e.pointerId);drawing=false;last=null;});
-  canvas.addEventListener('pointercancel',()=>{drawing=false;last=null;});
+  canvas.addEventListener('pointermove', scratch);
+  canvas.addEventListener('pointerup',   e=>{canvas.releasePointerCapture?.(e.pointerId);drawing=false;last=null;});
+  canvas.addEventListener('pointercancel', ()=>{drawing=false;last=null;});
   canvas.style.touchAction='none';
 
-  // ======== WhatsApp con captura ========
-  const WHATSAPP_NUMBER="5491167907135";
-  async function captureCardBlob(){if(!window.html2canvas)return null;const cap=await html2canvas(card,{backgroundColor:null,scale:Math.min(window.devicePixelRatio||1,2),useCORS:true});
-    return await new Promise(res=>cap.toBlob(res,'image/png',0.95));}
-  function downloadBlob(blob,filename){const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=filename;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(url);a.remove();},100);}
-  waBtn.addEventListener('click',async()=>{if(!currentWin)return;const mensaje=`¡Hola! Acabo de ganar en la RASPADITA TEAM L-5: ${premio.textContent.trim()}`;
-    const waURL=`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(mensaje)}`;const blob=await captureCardBlob();
-    try{if(blob&&navigator.canShare&&navigator.canShare({files:[new File([blob],'premio.png',{type:'image/png'})]})){await navigator.share({files:[new File([blob],'premio.png',{type:'image/png'})],title:'Premio RASPADITA TEAM L-5',text:mensaje});return;}}
-    catch(e){} if(blob) downloadBlob(blob,'premio.png');window.open(waURL,'_blank');});
+  // ======== WhatsApp con captura (solo si hay premio) ========
+  async function captureCardBlob(){
+    if (!window.html2canvas) return null;
+    const cap = await html2canvas(card, { backgroundColor:null, scale:Math.min(window.devicePixelRatio||1,2), useCORS:true });
+    return await new Promise(res => cap.toBlob(res, 'image/png', 0.95));
+  }
+  function downloadBlob(blob, filename){
+    const url=URL.createObjectURL(blob); const a=document.createElement('a');
+    a.href=url; a.download=filename; document.body.appendChild(a); a.click();
+    setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); }, 100);
+  }
 
+  waBtn.addEventListener('click', async ()=>{
+    if (!currentWin) return;
+    const mensaje = `¡Hola! Acabo de ganar en la RASPADITA TEAM L-5: ${premio.textContent.trim()} — ${stamp.textContent}`;
+    const waURL   = `https://wa.me/${"5491167907135"}?text=${encodeURIComponent(mensaje)}`;
+
+    const blob = await captureCardBlob();
+    try{
+      if (blob && navigator.canShare && navigator.canShare({ files: [new File([blob],'premio.png',{type:'image/png'})] })) {
+        await navigator.share({ files:[new File([blob],'premio.png',{type:'image/png'})], title:'Premio RASPADITA TEAM L-5', text:mensaje });
+        return;
+      }
+    }catch(e){}
+    if (blob) downloadBlob(blob,'premio.png');
+    window.open(waURL,'_blank');
+  });
+
+  // Init
   window.addEventListener('resize', size);
   window.addEventListener('load', size);
   document.addEventListener('DOMContentLoaded', size);
