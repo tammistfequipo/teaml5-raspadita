@@ -5,10 +5,13 @@
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>RASPADITA TEAM L-5</title>
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@800;900&family=Inter:wght@400;700;800&display=swap" rel="stylesheet">
+
+<!-- Para capturar screenshot del premio -->
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js" defer></script>
+
 <style>
   :root{
-    /* 👇 Usá tu imagen (asegurate que exista en el repo o en /public) */
-    --bg-url: url("f1ec4f7e-3b11-414c-bb1c-3db302c97c66.jpg");
+    --bg-url: url("f1ec4f7e-3b11-414c-bb1c-3db302c97c66.jpg"); /* tu foto de fondo */
     --glass: rgba(10,14,25,.55);
     --accent: #00d5ff;
     --accent-2: #7b5cff;
@@ -48,19 +51,17 @@
     backdrop-filter: blur(6px);
   }
 
-  /* ✅ Contenedor del premio + canvas (quedan perfectamente superpuestos) */
+  /* Contenedor del premio + canvas */
   .prize-wrap{
     position:relative;
     width:100%;
-    height:240px;               /* podés ajustar altura */
+    height:240px;
     border-radius:14px;
-    overflow:hidden;            /* evita que nada se salga */
+    overflow:hidden;
     border:1px solid rgba(255,255,255,.08);
     background: rgba(0,0,0,.35);
-    isolation:isolate;          /* para que los efectos queden dentro */
+    isolation:isolate;
   }
-
-  /* Texto/HTML del premio */
   #premio{
     position:absolute; inset:0;
     display:grid; place-items:center;
@@ -68,25 +69,24 @@
     text-align:center; padding:12px;
     text-shadow: 0 2px 0 rgba(0,0,0,.8), 0 0 14px rgba(255,216,107,.35);
   }
-
-  /* Capa raspable */
   #scratch{
     position:absolute; inset:0; display:block;
     border-radius:14px;
     box-shadow: inset 0 0 0 1px rgba(0,0,0,.35), 0 0 22px rgba(0,0,0,.25);
     touch-action:none;
-    clip-path: inset(0 round 14px); /* asegura bordes perfectos */
+    clip-path: inset(0 round 14px);
   }
 
-  .actions{display:flex; justify-content:center; margin-top:16px}
-  #reclamar{
+  .actions{display:flex; justify-content:center; margin-top:16px; gap:10px; flex-wrap:wrap}
+  .btn{
     display:none; border:0; cursor:pointer; padding:12px 22px; border-radius:999px;
-    font-weight:800; letter-spacing:.3px; background: radial-gradient(120% 120% at 0% 0%, var(--accent), var(--accent-2));
+    font-weight:800; letter-spacing:.3px;
+    background: radial-gradient(120% 120% at 0% 0%, var(--accent), var(--accent-2));
     color:#071018; box-shadow: 0 8px 22px rgba(0,213,255,.25);
     transition: transform .15s ease, box-shadow .2s ease, filter .2s ease;
   }
-  #reclamar:hover{ transform: translateY(-1px); box-shadow:0 12px 28px rgba(0,213,255,.32) }
-  #reclamar:active{ transform: translateY(1px); filter:brightness(.92) }
+  .btn:hover{ transform: translateY(-1px); box-shadow:0 12px 28px rgba(0,213,255,.32) }
+  .btn:active{ transform: translateY(1px); filter:brightness(.92) }
 
   .hint{color:var(--muted); text-align:center; margin-top:8px; font-size:14px}
 </style>
@@ -98,29 +98,36 @@
     <div class="stack">
       <h1>🎰 RASPADITA TEAM L-5 🎰</h1>
 
-      <div class="card">
-        <!-- ✅ PREMIO + CANVAS dentro del mismo contenedor -->
+      <div class="card" id="card">
         <div class="prize-wrap">
           <div id="premio">🎁 Cargando premio...</div>
           <canvas id="scratch"></canvas>
         </div>
 
         <div class="actions">
-          <button id="reclamar">Reclamar premio</button>
+          <!-- 👇 Este botón solo se muestra si hay premio (texto contiene "Ganaste") -->
+          <button id="whatsappBtn" class="btn">📲 Enviar captura por WhatsApp</button>
         </div>
-        <div class="hint">Raspá con el dedo o el mouse. Al revelar ~50% se habilita el botón.</div>
+        <div class="hint">Raspá con el dedo o el mouse. Al revelar ~50% se habilita el botón si hay premio.</div>
       </div>
     </div>
   </div>
 
 <script>
   // ======== Elementos ========
+  const card = document.getElementById('card');
   const canvas = document.getElementById('scratch');
   const ctx = canvas.getContext('2d', { willReadFrequently: true });
   const premio = document.getElementById('premio');
-  const btn = document.getElementById('reclamar');
+  const waBtn  = document.getElementById('whatsappBtn');
 
-  // ======== BACKEND: decide si gana o no ========
+  // ======== Backend: decide si gana o no ========
+  let currentWin = false; // estado actual (true si el texto tiene "Ganaste")
+
+  function isWinningMessage(text){
+    return /ganaste/i.test(text || "");
+  }
+
   function getClientId(){
     const k = 'raspadita:clientId';
     let id = localStorage.getItem(k);
@@ -130,13 +137,15 @@
     }
     return id;
   }
+
   async function prepararPremio(){
     const dayKey = new Date().toISOString().slice(0,10);
     const playedKey = 'raspadita:lastPlayDay';
 
-    // Si ya jugó hoy, mostramos aviso (bloqueo suave)
+    // Bloqueo suave (UX): 1 jugada por día
     if (localStorage.getItem(playedKey) === dayKey){
       premio.textContent = "⏳ Ya jugaste hoy. Volvé mañana.";
+      currentWin = false;
       return;
     }
 
@@ -149,21 +158,21 @@
       const data = await r.json();
       if (!data.ok) throw new Error(data.error || 'error');
 
-      // Escribimos el resultado que decidió el backend
       premio.textContent = data.mensaje;
-      // Marcamos que ya jugó hoy (para UX)
+      currentWin = isWinningMessage(data.mensaje);
+      // Marcamos jugada del día
       localStorage.setItem(playedKey, dayKey);
     }catch(e){
       premio.textContent = "⚠️ Intentalo de nuevo en un momento.";
+      currentWin = false;
     }
   }
   document.addEventListener('DOMContentLoaded', prepararPremio);
 
-  // ======== RASPADO ========
-  const BRUSH = 42;              // tamaño del “raspador”
-  const REVEAL_THRESHOLD = 0.5;  // 50% revelado
-
-  let drawing = false, revealed = false, last = null, lastCheck = 0, dpr = 1;
+  // ======== Raspado ========
+  const BRUSH = 42;
+  const REVEAL_THRESHOLD = 0.5; // 50% revelado
+  let drawing=false, revealed=false, last=null, lastCheck=0, dpr=1;
 
   function size(){
     const wrap = document.querySelector('.prize-wrap');
@@ -181,95 +190,131 @@
   }
 
   function paintCover(w, h){
-    ctx.globalCompositeOperation = 'source-over';
+    ctx.globalCompositeOperation='source-over';
     const grad = ctx.createLinearGradient(0,0,w,h);
-    grad.addColorStop(0, '#b7b7b7'); grad.addColorStop(1, '#9c9c9c');
-    ctx.fillStyle = grad;
-    ctx.fillRect(0,0,w,h);
+    grad.addColorStop(0,'#b7b7b7'); grad.addColorStop(1,'#9c9c9c');
+    ctx.fillStyle=grad; ctx.fillRect(0,0,w,h);
 
-    // Texto guía
-    ctx.fillStyle = 'rgba(0,0,0,.35)';
-    ctx.font = "bold 20px Inter, Arial";
-    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.fillStyle='rgba(0,0,0,.35)';
+    ctx.font="bold 20px Inter, Arial";
+    ctx.textAlign="center"; ctx.textBaseline="middle";
     ctx.fillText("Raspá aquí", w/2, h/2);
 
-    // Reset de estado
-    revealed = false;
-    btn.style.display = 'none';
-    canvas.style.opacity = 1;
-    canvas.style.display = 'block';
+    // reset
+    revealed=false;
+    waBtn.style.display='none'; // siempre oculto hasta revelar y que sea premio
+    canvas.style.opacity=1;
+    canvas.style.display='block';
   }
 
   function pos(e){
     const r = canvas.getBoundingClientRect();
-    const x = (e.touches ? e.touches[0].clientX : e.clientX) - r.left;
-    const y = (e.touches ? e.touches[0].clientY : e.clientY) - r.top;
-    return {x, y};
+    const x=(e.touches?e.touches[0].clientX:e.clientX)-r.left;
+    const y=(e.touches?e.touches[0].clientY:e.clientY)-r.top;
+    return {x,y};
   }
 
   function scratch(e){
-    if (!drawing || revealed) return;
-    const {x, y} = pos(e);
+    if(!drawing||revealed)return;
+    const {x,y}=pos(e);
 
-    ctx.globalCompositeOperation = 'destination-out';
-    // círculo actual
-    ctx.beginPath(); ctx.arc(x, y, BRUSH, 0, Math.PI*2); ctx.fill();
-    // trazo entre puntos (evita huecos)
-    if (last){
-      ctx.lineWidth = BRUSH * 2;
-      ctx.lineCap = 'round';
-      ctx.beginPath();
-      ctx.moveTo(last.x, last.y);
-      ctx.lineTo(x, y);
-      ctx.stroke();
+    ctx.globalCompositeOperation='destination-out';
+    ctx.beginPath(); ctx.arc(x,y,BRUSH,0,Math.PI*2); ctx.fill();
+
+    if(last){
+      ctx.lineWidth=BRUSH*2; ctx.lineCap='round';
+      ctx.beginPath(); ctx.moveTo(last.x,last.y); ctx.lineTo(x,y); ctx.stroke();
     }
-    last = {x, y};
-
+    last={x,y};
     throttleCheck();
   }
 
-  // Muestreo reducido para medir % revelado
-  const sample = document.createElement('canvas');
-  const sctx = sample.getContext('2d', { willReadFrequently: true });
-  sample.width = 80; sample.height = 50;
+  const sample=document.createElement('canvas');
+  const sctx=sample.getContext('2d', { willReadFrequently: true });
+  sample.width=80; sample.height=50;
 
   function throttleCheck(){
-    const now = performance.now();
-    if (now - lastCheck < 160) return; // chequea ~6 veces/seg
-    lastCheck = now;
-    checkReveal();
+    const now=performance.now();
+    if(now-lastCheck<160)return;
+    lastCheck=now; checkReveal();
   }
 
   function checkReveal(){
     sctx.clearRect(0,0,sample.width,sample.height);
-    sctx.drawImage(canvas, 0, 0, sample.width, sample.height);
-    const {data} = sctx.getImageData(0,0,sample.width,sample.height);
-    let transparent = 0;
-    for (let i=3; i<data.length; i+=4) if (data[i] === 0) transparent++;
-    const percent = transparent / (sample.width*sample.height);
-    if (percent >= REVEAL_THRESHOLD && !revealed) reveal();
+    sctx.drawImage(canvas,0,0,sample.width,sample.height);
+    const {data}=sctx.getImageData(0,0,sample.width,sample.height);
+    let transparent=0;
+    for(let i=3;i<data.length;i+=4) if(data[i]===0) transparent++;
+    const percent=transparent/(sample.width*sample.height);
+    if(percent>=REVEAL_THRESHOLD && !revealed) reveal();
   }
 
   function reveal(){
-    revealed = true;
-    canvas.style.transition = 'opacity .45s ease';
-    canvas.style.opacity = 0;
+    revealed=true;
+    canvas.style.transition='opacity .45s ease';
+    canvas.style.opacity=0;
     setTimeout(()=> (canvas.style.display='none'), 470);
-    btn.style.display = 'inline-block';
+
+    // 👇 Mostrar botón SOLO si realmente hay premio
+    if (currentWin) {
+      waBtn.style.display='inline-block';
+    } else {
+      waBtn.style.display='none';
+    }
   }
 
-  // Eventos pointer (móvil + desktop)
-  canvas.addEventListener('pointerdown', e=>{ canvas.setPointerCapture?.(e.pointerId); drawing = true; last = null; scratch(e); });
+  // Eventos pointer
+  canvas.addEventListener('pointerdown', e=>{ canvas.setPointerCapture?.(e.pointerId); drawing=true; last=null; scratch(e); });
   canvas.addEventListener('pointermove', scratch);
-  canvas.addEventListener('pointerup',   e=>{ canvas.releasePointerCapture?.(e.pointerId); drawing = false; last = null; });
-  canvas.addEventListener('pointercancel',()=>{ drawing = false; last = null; });
-  canvas.style.touchAction = 'none';
+  canvas.addEventListener('pointerup',   e=>{ canvas.releasePointerCapture?.(e.pointerId); drawing=false; last=null; });
+  canvas.addEventListener('pointercancel',()=>{ drawing=false; last=null; });
+  canvas.style.touchAction='none';
 
-  // Reclamar (WhatsApp)
-  btn.addEventListener('click', ()=>{
-    const numero = "5491167907135";
-    const msg = `¡Hola! Acabo de jugar la RASPADITA TEAM L-5: ${premio.textContent.trim()}`;
-    window.open(`https://wa.me/${numero}?text=${encodeURIComponent(msg)}`, '_blank');
+  // ======== WhatsApp con captura (solo si hay premio) ========
+  const WHATSAPP_NUMBER = "5491167907135";
+
+  async function captureCardBlob(){
+    if (!window.html2canvas) return null;
+    const cap = await html2canvas(card, {
+      backgroundColor: null,
+      scale: Math.min(window.devicePixelRatio || 1, 2),
+      useCORS: true
+    });
+    return await new Promise(res => cap.toBlob(res, 'image/png', 0.95));
+  }
+
+  function downloadBlob(blob, filename){
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click();
+    setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); }, 100);
+  }
+
+  waBtn.addEventListener('click', async ()=>{
+    // Seguridad extra: solo permitir si hay premio
+    if (!currentWin) return;
+
+    const mensaje = `¡Hola! Acabo de ganar en la RASPADITA TEAM L-5: ${premio.textContent.trim()}`;
+    const waURL = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(mensaje)}`;
+
+    const blob = await captureCardBlob();
+
+    try{
+      // Compartir con archivo en móviles modernos
+      if (blob && navigator.canShare && navigator.canShare({ files: [new File([blob], 'premio.png', {type:'image/png'})] })) {
+        await navigator.share({
+          files: [new File([blob], 'premio.png', {type:'image/png'})],
+          title: 'Premio RASPADITA TEAM L-5',
+          text: mensaje
+        });
+        return;
+      }
+    }catch(e){ /* si falla, seguimos con fallback */ }
+
+    // Fallback: descargar captura y abrir WhatsApp con el texto
+    if (blob) downloadBlob(blob, 'premio.png');
+    window.open(waURL, '_blank');
   });
 
   // Init
