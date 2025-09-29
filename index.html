@@ -25,7 +25,6 @@
   .wrap{min-height:100%; display:grid; place-items:center; padding:28px}
   .stack{width:min(520px, 92vw); margin-inline:auto}
 
-  /* Título rojo neón */
   h1{
     margin:0 0 18px; text-align:center;
     font-family: Orbitron, Inter, system-ui, sans-serif; font-weight:900; letter-spacing:1px;
@@ -83,7 +82,6 @@
   .hint{color:#cbd3e6; text-align:center; margin-top:8px; font-size:14px}
   .hint.hidden{ display:none; }
 
-  /* ===== Confetti ===== */
   .confetti-layer{ position:fixed; inset:0; pointer-events:none; overflow:hidden; z-index:999; }
   .confetto{ position:absolute; width:10px; height:14px; border-radius:2px; opacity:.95 }
 </style>
@@ -110,7 +108,6 @@
     </div>
   </div>
 
-  <!-- Capa para los papelitos -->
   <div class="confetti-layer" id="confettiLayer"></div>
 
 <script>
@@ -133,7 +130,7 @@
   const hintEl = document.getElementById('hint');
   const confettiLayer = document.getElementById('confettiLayer');
 
-  const WHATSAPP_NUMBER = "5491167907135"; // <<-- seguirá visible hasta que movamos esto al backend
+  let WA_NUMBER = ""; // se carga desde el backend en /api/sorteo
   const TODAY = new Date().toISOString().slice(0,10);
   const RESULT_KEY = 'raspadita:result:' + TODAY;
 
@@ -149,7 +146,7 @@
   }
   function isWinningMessage(text){ return /ganaste/i.test(text || ""); }
 
-  // 👇 ID único por navegador
+  // ID único por navegador
   function getClientId(){
     const k = 'raspadita:clientId';
     let id = localStorage.getItem(k);
@@ -160,6 +157,7 @@
     return id;
   }
 
+  // Pide sorteo y (si viene) el número de WhatsApp desde el backend
   async function pedirSorteo(){
     const r = await fetch('/api/sorteo', {
       method:'POST',
@@ -168,10 +166,11 @@
     });
     const data = await r.json();
     if (!data.ok) throw new Error(data.error || 'error');
+    if (data.whatsApp) WA_NUMBER = (data.whatsApp || "").toString();
     return data;
   }
 
-  // ===== Confetti =====
+  // Confetti
   function confetti(duracionMs = 5000, cantidad = 120){
     for(let i=0;i<cantidad;i++){
       const c = document.createElement('div');
@@ -203,7 +202,7 @@
     }
   }
 
-  // ===== Carga inicial =====
+  // Carga inicial
   async function init(){
     const cached = localStorage.getItem(RESULT_KEY);
     if (cached){
@@ -233,7 +232,7 @@
     paintCover(canvas.clientWidth, canvas.clientHeight);
   }
 
-  // ===== Capa plateada y raspado =====
+  // Capa plateada y raspado
   const BRUSH=42, REVEAL_THRESHOLD=0.5;
   let drawing=false, last=null, lastCheck=0, dpr=1;
 
@@ -274,7 +273,7 @@
     if(percent>=REVEAL_THRESHOLD && !revealed) reveal();
   }
 
-  // ===== Al revelar por primera vez =====
+  // Al revelar por primera vez
   async function reveal(){
     revealed=true;
 
@@ -295,8 +294,6 @@
       setSafePrizeMessage(sorteo.mensaje, currentStampText);
       stamp.textContent = currentStampText; stamp.style.display='inline-block';
       waBtn.style.display = 'inline-block';
-
-      // 🎉 confetti!
       confetti(6000, 140);
 
       localStorage.setItem(RESULT_KEY, JSON.stringify({
@@ -345,16 +342,18 @@
     if (!currentWin) return;
     const baseText = premio.textContent.replace(/\s+/g,' ').trim();
     const mensaje  = `¡Hola! Acabo de ganar en la RASPADITA TEAM L-5: ${baseText} — ${currentStampText}`;
-    const waURL    = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(mensaje)}`;
+    const waURL    = WA_NUMBER ? `https://wa.me/${WA_NUMBER}?text=${encodeURIComponent(mensaje)}` : null;
+
     const blob = await captureCardBlob();
     try{
       if (blob && navigator.canShare && navigator.canShare({ files: [new File([blob],'premio.png',{type:'image/png'})] })) {
         await navigator.share({ files:[new File([blob],'premio.png',{type:'image/png'})], title:'Premio RASPADITA TEAM L-5', text:mensaje });
         return;
       }
-    }catch(e){}
+    }catch(e){ /* share fallback */ }
+
     if (blob) downloadBlob(blob,'premio.png');
-    window.open(waURL,'_blank');
+    if (waURL) window.open(waURL,'_blank');
   });
 
   // Atajo admin: Shift+R limpia el resultado de hoy
