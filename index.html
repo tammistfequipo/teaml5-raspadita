@@ -75,7 +75,7 @@
   .btn{
     display:none; border:0; cursor:pointer; padding:12px 22px; border-radius:999px;
     font-weight:800; letter-spacing:.3px; background: radial-gradient(120% 120% at 0% 0%, var(--accent), var(--accent-2));
-    color:#071018; box-shadow:0 8px 22px rgba(0,213,255,.25); transition: transform .15s ease, box-shadow .2s ease, filter .2s ease;
+    color:#071018; box-shadow: 0 8px 22px rgba(0,213,255,.25); transition: transform .15s ease, box-shadow .2s ease, filter .2s ease;
   }
   .btn:hover{ transform: translateY(-1px); box-shadow:0 12px 28px rgba(0,213,255,.32) }
   .btn:active{ transform: translateY(1px); filter:brightness(.92) }
@@ -149,8 +149,24 @@
   }
   function isWinningMessage(text){ return /ganaste/i.test(text || ""); }
 
+  // 👇 NUEVO: ID único por navegador
+  function getClientId(){
+    const k = 'raspadita:clientId';
+    let id = localStorage.getItem(k);
+    if (!id){
+      id = 'cid_' + Math.random().toString(36).slice(2) + Date.now().toString(36);
+      localStorage.setItem(k, id);
+    }
+    return id;
+  }
+
+  // 🔄 Modificado: enviar clientId al backend
   async function pedirSorteo(){
-    const r = await fetch('/api/sorteo', { method:'POST', headers:{'Content-Type':'application/json'} });
+    const r = await fetch('/api/sorteo', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ clientId: getClientId() })
+    });
     const data = await r.json();
     if (!data.ok) throw new Error(data.error || 'error');
     return data;
@@ -191,9 +207,8 @@
         stamp.style.display = 'inline-block';
         waBtn.style.display = 'inline-block';
         hintEl.textContent = "⏳ Ya jugaste hoy. Volvé mañana.";
-        // (no lanzamos confetti en recarga para no molestar)
       } else {
-        // 👇 NUEVO TEXTO en recarga cuando NO hubo premio
+        // 👇 Mensaje en recarga cuando NO hubo premio
         premio.innerHTML = `⏳Sin premio, Ya probaste hoy a esta hora 👇<br><small style="color:#cdd6ea">${currentStampText}</small>`;
         stamp.textContent = currentStampText;
         stamp.style.display = 'inline-block';
