@@ -70,7 +70,7 @@
 
   #scratch{position:absolute; inset:0; display:block; border-radius:14px; box-shadow: inset 0 0 0 1px rgba(0,0,0,.35), 0 0 22px rgba(0,0,0,.25); touch-action:none; clip-path: inset(0 round 14px)}
 
-  .actions{display:flex; justify-content:center; margin-top:16px; gap:10px; flex-wrap:wrap}
+  .actions{display:flex; flex-direction:column; align-items:center; margin-top:16px; gap:8px; flex-wrap:wrap}
   .btn{
     display:none; border:0; cursor:pointer; padding:12px 22px; border-radius:999px;
     font-weight:800; letter-spacing:.3px; background: radial-gradient(120% 120% at 0% 0%, var(--accent), var(--accent-2));
@@ -101,8 +101,18 @@
         </div>
 
         <div class="actions">
-          <button id="whatsappBtn" class="btn">📲 Enviar captura por WhatsApp</button>
+          <!-- Botón para descargar la captura -->
+          <button id="captureBtn" class="btn">📸 Descargar captura</button>
+
+          <!-- Instrucción con link a la línea -->
+          <div id="instruccion" class="hint">
+            Enviá la captura a la línea 👉
+            <a href="https://teaml-5.vercel.app" target="_blank" style="color:#00d5ff;font-weight:800">
+              https://teaml-5.vercel.app
+            </a>
+          </div>
         </div>
+
         <div id="hint" class="hint">Raspá con el dedo o el mouse. Al revelar ~50% se bloquea la jugada de hoy.</div>
       </div>
     </div>
@@ -126,11 +136,10 @@
   const ctx    = canvas.getContext('2d', { willReadFrequently: true });
   const premio = document.getElementById('premio');
   const stamp  = document.getElementById('stamp');
-  const waBtn  = document.getElementById('whatsappBtn');
   const hintEl = document.getElementById('hint');
   const confettiLayer = document.getElementById('confettiLayer');
+  const captureBtn = document.getElementById('captureBtn');
 
-  let WA_NUMBER = ""; // se carga desde el backend en /api/sorteo
   const TODAY = new Date().toISOString().slice(0,10);
   const RESULT_KEY = 'raspadita:result:' + TODAY;
 
@@ -146,7 +155,6 @@
   }
   function isWinningMessage(text){ return /ganaste/i.test(text || ""); }
 
-  // ID único por navegador
   function getClientId(){
     const k = 'raspadita:clientId';
     let id = localStorage.getItem(k);
@@ -157,7 +165,7 @@
     return id;
   }
 
-  // Pide sorteo y (si viene) el número de WhatsApp desde el backend
+  // Pide sorteo al backend
   async function pedirSorteo(){
     const r = await fetch('/api/sorteo', {
       method:'POST',
@@ -166,7 +174,6 @@
     });
     const data = await r.json();
     if (!data.ok) throw new Error(data.error || 'error');
-    if (data.whatsApp) WA_NUMBER = (data.whatsApp || "").toString();
     return data;
   }
 
@@ -215,13 +222,13 @@
         setSafePrizeMessage(data.mensaje || "¡GANASTE!", currentStampText);
         stamp.textContent = currentStampText;
         stamp.style.display = 'inline-block';
-        waBtn.style.display = 'inline-block';
+        captureBtn.style.display = 'inline-block';
         hintEl.textContent = "⏳ Ya jugaste hoy. Volvé mañana.";
       } else {
         setSafePrizeMessage("😅 Sin premio esta vez. Probá mañana.", currentStampText);
         stamp.textContent = currentStampText;
         stamp.style.display = 'inline-block';
-        waBtn.style.display = 'none';
+        captureBtn.style.display = 'inline-block';
         hintEl.textContent = "⏳ Ya probaste hoy a esta hora ☝️";
       }
       return;
@@ -251,7 +258,7 @@
     ctx.fillStyle=grad; ctx.fillRect(0,0,w,h);
     ctx.fillStyle='rgba(0,0,0,.35)'; ctx.font="bold 20px Inter, Arial";
     ctx.textAlign="center"; ctx.textBaseline="middle"; ctx.fillText("Raspá aquí", w/2, h/2);
-    revealed=false; waBtn.style.display='none'; canvas.style.opacity=1; canvas.style.display='block';
+    revealed=false; captureBtn.style.display='none'; canvas.style.opacity=1; canvas.style.display='block';
   }
   function pos(e){ const r=canvas.getBoundingClientRect(); const x=(e.touches?e.touches[0].clientX:e.clientX)-r.left; const y=(e.touches?e.touches[0].clientY:e.clientY)-r.top; return {x,y}; }
   function scratch(e){
@@ -293,7 +300,7 @@
     if (currentWin){
       setSafePrizeMessage(sorteo.mensaje, currentStampText);
       stamp.textContent = currentStampText; stamp.style.display='inline-block';
-      waBtn.style.display = 'inline-block';
+      captureBtn.style.display = 'inline-block';
       confetti(6000, 140);
 
       localStorage.setItem(RESULT_KEY, JSON.stringify({
@@ -304,7 +311,7 @@
     } else {
       setSafePrizeMessage("😅 Sin premio esta vez. Probá mañana.", currentStampText);
       stamp.textContent = currentStampText; stamp.style.display='inline-block';
-      waBtn.style.display = 'none';
+      captureBtn.style.display = 'inline-block';
 
       localStorage.setItem(RESULT_KEY, JSON.stringify({
         mensaje: "Sin premio",
@@ -320,14 +327,7 @@
     hintEl.textContent = "⏳ Ya jugaste hoy. Volvé mañana.";
   }
 
-  // Eventos pointer
-  canvas.addEventListener('pointerdown', e=>{ canvas.setPointerCapture?.(e.pointerId); drawing=true; last=null; scratch(e); });
-  canvas.addEventListener('pointermove', scratch);
-  canvas.addEventListener('pointerup',   e=>{ canvas.releasePointerCapture?.(e.pointerId); drawing=false; last=null; });
-  canvas.addEventListener('pointercancel',()=>{ drawing=false; last=null; });
-  canvas.style.touchAction='none';
-
-  // WhatsApp + captura
+  // Captura de la card
   async function captureCardBlob(){
     if (!window.html2canvas) return null;
     const cap = await html2canvas(card,{backgroundColor:null, scale:Math.min(window.devicePixelRatio||1,2), useCORS:true});
@@ -338,22 +338,11 @@
     a.href=url; a.download=filename; document.body.appendChild(a); a.click();
     setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); }, 100);
   }
-  waBtn.addEventListener('click', async ()=>{
-    if (!currentWin) return;
-    const baseText = premio.textContent.replace(/\s+/g,' ').trim();
-    const mensaje  = `¡Hola! Acabo de ganar en la RASPADITA TEAM L-5: ${baseText} — ${currentStampText}`;
-    const waURL    = WA_NUMBER ? `https://wa.me/${WA_NUMBER}?text=${encodeURIComponent(mensaje)}` : null;
 
+  // Botón "Descargar captura"
+  document.getElementById('captureBtn').addEventListener('click', async ()=>{
     const blob = await captureCardBlob();
-    try{
-      if (blob && navigator.canShare && navigator.canShare({ files: [new File([blob],'premio.png',{type:'image/png'})] })) {
-        await navigator.share({ files:[new File([blob],'premio.png',{type:'image/png'})], title:'Premio RASPADITA TEAM L-5', text:mensaje });
-        return;
-      }
-    }catch(e){ /* share fallback */ }
-
     if (blob) downloadBlob(blob,'premio.png');
-    if (waURL) window.open(waURL,'_blank');
   });
 
   // Atajo admin: Shift+R limpia el resultado de hoy
