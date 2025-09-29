@@ -53,22 +53,11 @@
     position:relative; width:100%; height:240px; border-radius:14px; overflow:hidden;
     border:1px solid rgba(255,255,255,.08); background: rgba(0,0,0,.35); isolation:isolate;
   }
-  #premio{
-    position:absolute; inset:0; display:grid; place-items:center; padding:12px;
-    font-weight:800; font-size:clamp(20px,4.8vw,28px); color:var(--gold); text-align:center;
-    text-shadow:0 2px 0 rgba(0,0,0,.8), 0 0 14px rgba(255,216,107,.35);
-  }
-  .stamp{
-    position:absolute; right:10px; bottom:8px;
-    padding:6px 10px; font-size:12px; line-height:1.25;
-    color:#eaf2ff; background:rgba(0,0,0,.55);
-    border:1px solid rgba(255,255,255,.18);
-    border-radius:10px; backdrop-filter: blur(4px);
-    box-shadow:0 4px 14px rgba(0,0,0,.35), inset 0 0 0 1px rgba(255,255,255,.06);
-    display:none;
-  }
-
-  #scratch{position:absolute; inset:0; display:block; border-radius:14px; box-shadow: inset 0 0 0 1px rgba(0,0,0,.35), 0 0 22px rgba(0,0,0,.25); touch-action:none; clip-path: inset(0 round 14px)}
+  /* 👇 Evita que tapen el canvas */
+  #premio{position:absolute; inset:0; display:grid; place-items:center; padding:12px; font-weight:800; font-size:clamp(20px,4.8vw,28px); color:var(--gold); text-align:center; text-shadow:0 2px 0 rgba(0,0,0,.8), 0 0 14px rgba(255,216,107,.35); pointer-events:none; z-index:1}
+  .stamp{position:absolute; right:10px; bottom:8px; padding:6px 10px; font-size:12px; line-height:1.25; color:#eaf2ff; background:rgba(0,0,0,.55);
+    border:1px solid rgba(255,255,255,.18); border-radius:10px; backdrop-filter: blur(4px); box-shadow:0 4px 14px rgba(0,0,0,.35), inset 0 0 0 1px rgba(255,255,255,.06); display:none; pointer-events:none; z-index:2}
+  #scratch{position:absolute; inset:0; display:block; border-radius:14px; box-shadow: inset 0 0 0 1px rgba(0,0,0,.35), 0 0 22px rgba(0,0,0,.25); touch-action:none; clip-path: inset(0 round 14px); z-index:3; pointer-events:auto}
 
   .actions{display:flex; flex-direction:column; align-items:center; margin-top:16px; gap:8px; flex-wrap:wrap}
   .btn{
@@ -101,10 +90,7 @@
         </div>
 
         <div class="actions">
-          <!-- Botón para descargar la captura -->
           <button id="captureBtn" class="btn">📸 Descargar captura</button>
-
-          <!-- Instrucción con link a la línea -->
           <div id="instruccion" class="hint">
             Enviá la captura a la línea 👉
             <a href="https://teaml-5.vercel.app" target="_blank" style="color:#00d5ff;font-weight:800">
@@ -121,7 +107,6 @@
   <div class="confetti-layer" id="confettiLayer"></div>
 
 <script>
-  /* ===== Reset rápido por URL: ?reset=1 ===== */
   (function(){
     const q = new URLSearchParams(location.search);
     if (q.get('reset') === '1') {
@@ -165,7 +150,6 @@
     return id;
   }
 
-  // Pide sorteo al backend
   async function pedirSorteo(){
     const r = await fetch('/api/sorteo', {
       method:'POST',
@@ -177,7 +161,6 @@
     return data;
   }
 
-  // Confetti
   function confetti(duracionMs = 5000, cantidad = 120){
     for(let i=0;i<cantidad;i++){
       const c = document.createElement('div');
@@ -197,7 +180,6 @@
     }
   }
 
-  /* === Setter SEGURO del mensaje (anti-XSS) === */
   function setSafePrizeMessage(msg, stampText) {
     premio.textContent = (msg || "").toString();
     if (stampText) {
@@ -209,7 +191,6 @@
     }
   }
 
-  // Carga inicial
   async function init(){
     const cached = localStorage.getItem(RESULT_KEY);
     if (cached){
@@ -234,12 +215,10 @@
       return;
     }
 
-    // No hay cache → preparar para raspar
     size();
     paintCover(canvas.clientWidth, canvas.clientHeight);
   }
 
-  // Capa plateada y raspado
   const BRUSH=42, REVEAL_THRESHOLD=0.5;
   let drawing=false, last=null, lastCheck=0, dpr=1;
 
@@ -260,7 +239,12 @@
     ctx.textAlign="center"; ctx.textBaseline="middle"; ctx.fillText("Raspá aquí", w/2, h/2);
     revealed=false; captureBtn.style.display='none'; canvas.style.opacity=1; canvas.style.display='block';
   }
-  function pos(e){ const r=canvas.getBoundingClientRect(); const x=(e.touches?e.touches[0].clientX:e.clientX)-r.left; const y=(e.touches?e.touches[0].clientY:e.clientY)-r.top; return {x,y}; }
+  function pos(e){
+    const r=canvas.getBoundingClientRect();
+    const x=(e.touches?e.touches[0].clientX:e.clientX)-r.left;
+    const y=(e.touches?e.touches[0].clientY:e.clientY)-r.top;
+    return {x,y};
+  }
   function scratch(e){
     if(!drawing || revealed) return;
     const {x,y}=pos(e);
@@ -280,7 +264,6 @@
     if(percent>=REVEAL_THRESHOLD && !revealed) reveal();
   }
 
-  // Al revelar por primera vez
   async function reveal(){
     revealed=true;
 
@@ -303,31 +286,21 @@
       captureBtn.style.display = 'inline-block';
       confetti(6000, 140);
 
-      localStorage.setItem(RESULT_KEY, JSON.stringify({
-        mensaje: sorteo.mensaje,
-        win: true,
-        stampText: currentStampText
-      }));
+      localStorage.setItem(RESULT_KEY, JSON.stringify({ mensaje: sorteo.mensaje, win: true, stampText: currentStampText }));
     } else {
       setSafePrizeMessage("😅 Sin premio esta vez. Probá mañana.", currentStampText);
       stamp.textContent = currentStampText; stamp.style.display='inline-block';
       captureBtn.style.display = 'inline-block';
 
-      localStorage.setItem(RESULT_KEY, JSON.stringify({
-        mensaje: "Sin premio",
-        win: false,
-        stampText: currentStampText
-      }));
+      localStorage.setItem(RESULT_KEY, JSON.stringify({ mensaje: "Sin premio", win: false, stampText: currentStampText }));
     }
 
-    // Bloqueo visual
     canvas.style.transition='opacity .45s ease';
     canvas.style.opacity=0;
     setTimeout(()=> (canvas.style.display='none'), 470);
     hintEl.textContent = "⏳ Ya jugaste hoy. Volvé mañana.";
   }
 
-  // Captura de la card
   async function captureCardBlob(){
     if (!window.html2canvas) return null;
     const cap = await html2canvas(card,{backgroundColor:null, scale:Math.min(window.devicePixelRatio||1,2), useCORS:true});
@@ -338,14 +311,18 @@
     a.href=url; a.download=filename; document.body.appendChild(a); a.click();
     setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); }, 100);
   }
-
-  // Botón "Descargar captura"
   document.getElementById('captureBtn').addEventListener('click', async ()=>{
     const blob = await captureCardBlob();
     if (blob) downloadBlob(blob,'premio.png');
   });
 
-  // Atajo admin: Shift+R limpia el resultado de hoy
+  // 👇 Importante: evitar que el navegador “coma” los eventos
+  canvas.addEventListener('pointerdown', e=>{ e.preventDefault(); canvas.setPointerCapture?.(e.pointerId); drawing=true; last=null; scratch(e); });
+  canvas.addEventListener('pointermove', e=>{ e.preventDefault(); scratch(e); });
+  canvas.addEventListener('pointerup',   e=>{ e.preventDefault(); canvas.releasePointerCapture?.(e.pointerId); drawing=false; last=null; });
+  canvas.addEventListener('pointercancel',()=>{ drawing=false; last=null; });
+  canvas.style.touchAction='none';
+
   window.addEventListener('keydown', (e)=>{
     if (e.shiftKey && (e.key === 'R' || e.key === 'r')) {
       localStorage.removeItem(RESULT_KEY);
@@ -353,7 +330,6 @@
     }
   });
 
-  // Init
   window.addEventListener('resize', ()=>{ if (canvas.style.display !== 'none') { size(); paintCover(canvas.clientWidth, canvas.clientHeight); }});
   window.addEventListener('load', init);
   document.addEventListener('DOMContentLoaded', ()=>{ if (canvas.style.display !== 'none') { size(); paintCover(canvas.clientWidth, canvas.clientHeight); }});
