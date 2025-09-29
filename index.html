@@ -59,7 +59,6 @@
     font-weight:800; font-size:clamp(20px,4.8vw,28px); color:var(--gold); text-align:center;
     text-shadow:0 2px 0 rgba(0,0,0,.8), 0 0 14px rgba(255,216,107,.35);
   }
-  /* Sello hora + código */
   .stamp{
     position:absolute; right:10px; bottom:8px;
     padding:6px 10px; font-size:12px; line-height:1.25;
@@ -114,56 +113,87 @@
   const stamp  = document.getElementById('stamp');
   const waBtn  = document.getElementById('whatsappBtn');
 
-  let currentWin = false;
-  let currentStampText = ""; // para WhatsApp
-
   const WHATSAPP_NUMBER = "5491167907135";
 
-  function isWinningMessage(text){ return /ganaste/i.test(text || ""); }
+  // ==== Storage keys (por día) ====
+  const TODAY = new Date().toISOString().slice(0,10); // YYYY-MM-DD
+  const PLAYED_KEY  = 'raspadita:lastPlayDay';
+  const RESULT_KEY  = 'raspadita:result:' + TODAY;   // guarda {mensaje, win, stampText}
 
-  // Hora Argentina (formateada)
+  // ==== Utilidades ====
+  function isWinningMessage(text){ return /ganaste/i.test(text || ""); }
   function fechaHoraAR(){
     return new Date().toLocaleString("es-AR", { timeZone: "America/Argentina/Buenos_Aires" });
   }
-
-  // Código local de respaldo (si el backend no manda uno)
   function genCode(len=6){
     return Math.random().toString(36).slice(2, 2+len).toUpperCase().replace(/O/g,'0').replace(/I/g,'1');
   }
 
-  // Pide sorteo al backend
+  // ==== Estado ====
+  let currentWin = false;
+  let currentStampText = "";
+
+  // ==== Carga inicial con cache diario ====
   async function prepararPremio(){
+    // 1) Si hay resultado cacheado de hoy, úsalo y NO vuelvas a sortear
+    const cached = localStorage.getItem(RESULT_KEY);
+    if (cached){
+      const data = JSON.parse(cached);
+      premio.innerHTML = data.mensajeHTML ?? data.mensaje;
+      currentWin = !!data.win;
+      currentStampText = data.stampText || "";
+      if (currentWin){
+        stamp.textContent = currentStampText;
+        stamp.style.display = 'inline-block';
+      } else {
+        stamp.style.display = 'none';
+      }
+      return; // listo
+    }
+
+    // 2) Si ya jugó hoy (por alguna razón sin cache), avisar y no sortear
+    if (localStorage.getItem(PLAYED_KEY) === TODAY){
+      premio.textContent = "⏳ Ya jugaste hoy. Volvé mañana.";
+      currentWin = false;
+      stamp.style.display = 'none';
+      return;
+    }
+
+    // 3) No hay cache → pedir al backend UNA vez
     try{
       const r = await fetch('/api/sorteo', { method:'POST', headers:{'Content-Type':'application/json'} });
       const data = await r.json();
       if (!data.ok) throw new Error(data.error || 'error');
 
       currentWin = isWinningMessage(data.mensaje);
-
-      if (currentWin) {
+      if (currentWin){
         const codigo = (data.code || genCode());
         const horaAR = fechaHoraAR();
         currentStampText = `Emitido: ${horaAR} · Código: ${codigo}`;
-
-        // Mostrar premio + sello
-        premio.innerHTML = `${data.mensaje}<br><small style="color:#cdd6ea">${currentStampText}</small>`;
+        const mensajeHTML = `${data.mensaje}<br><small style="color:#cdd6ea">${currentStampText}</small>`;
+        premio.innerHTML = mensajeHTML;
         stamp.textContent = currentStampText;
         stamp.style.display = 'inline-block';
+
+        // Guardar cache del día
+        localStorage.setItem(RESULT_KEY, JSON.stringify({ mensaje: data.mensaje, mensajeHTML, win:true, stampText: currentStampText }));
       } else {
         premio.textContent = data.mensaje;
         stamp.style.display = 'none';
-        currentStampText = "";
+        localStorage.setItem(RESULT_KEY, JSON.stringify({ mensaje: data.mensaje, win:false, stampText:"" }));
       }
+
+      // Marcar que ya jugó hoy
+      localStorage.setItem(PLAYED_KEY, TODAY);
     }catch(e){
       premio.textContent = "⚠️ Intentalo de nuevo en un momento.";
       currentWin = false;
       stamp.style.display = 'none';
-      currentStampText = "";
     }
   }
   document.addEventListener('DOMContentLoaded', prepararPremio);
 
-  // Raspado
+  // ==== Raspado ====
   const BRUSH=42, REVEAL_THRESHOLD=0.5;
   let drawing=false, revealed=false, last=null, lastCheck=0, dpr=1;
 
@@ -181,8 +211,9 @@
     const grad=ctx.createLinearGradient(0,0,w,h);
     grad.addColorStop(0,'#b7b7b7'); grad.addColorStop(1,'#9c9c9c');
     ctx.fillStyle=grad; ctx.fillRect(0,0,w,h);
-    ctx.fillStyle='rgba(0,0,0,.35)'; ctx.font="bold 20px Inter, Arial";
-    ctx.textAlign="center"; ctx.textBaseline="middle"; ctx.fillText("Raspá aquí", w/2, h/2);
+    ctx.fillStyle='rgba(0,0,0,.35)';
+    ctx.font="bold 20px Inter, Arial"; ctx.textAlign="center"; ctx.textBaseline="middle";
+    ctx.fillText("Raspá aquí", w/2, h/2);
     revealed=false; waBtn.style.display='none'; canvas.style.opacity=1; canvas.style.display='block';
   }
   function pos(e){ const r=canvas.getBoundingClientRect(); const x=(e.touches?e.touches[0].clientX:e.clientX)-r.left; const y=(e.touches?e.touches[0].clientY:e.clientY)-r.top; return {x,y}; }
@@ -216,7 +247,7 @@
   canvas.addEventListener('pointercancel',()=>{drawing=false;last=null;});
   canvas.style.touchAction='none';
 
-  // WhatsApp + captura
+  // ==== WhatsApp + captura ====
   async function captureCardBlob(){
     if (!window.html2canvas) return null;
     const cap = await html2canvas(card,{backgroundColor:null, scale:Math.min(window.devicePixelRatio||1,2), useCORS:true});
@@ -229,8 +260,9 @@
   }
   waBtn.addEventListener('click', async ()=>{
     if (!currentWin) return;
-    const mensaje = `¡Hola! Acabo de ganar en la RASPADITA TEAM L-5: ${premio.textContent.replace(/\s+/g,' ').trim()} — ${currentStampText}`;
-    const waURL   = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(mensaje)}`;
+    const baseText = premio.textContent.replace(/\s+/g,' ').trim();
+    const mensaje  = `¡Hola! Acabo de ganar en la RASPADITA TEAM L-5: ${baseText} — ${currentStampText}`;
+    const waURL    = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(mensaje)}`;
     const blob = await captureCardBlob();
     try{
       if (blob && navigator.canShare && navigator.canShare({ files: [new File([blob],'premio.png',{type:'image/png'})] })) {
