@@ -25,7 +25,7 @@
   .wrap{min-height:100%; display:grid; place-items:center; padding:28px}
   .stack{width:min(520px, 92vw); margin-inline:auto}
 
-  /* Título rojo neón con contorno blanco */
+  /* Título rojo neón */
   h1{
     margin:0 0 18px; text-align:center;
     font-family: Orbitron, Inter, system-ui, sans-serif; font-weight:900; letter-spacing:1px;
@@ -114,170 +114,97 @@
   const waBtn  = document.getElementById('whatsappBtn');
 
   const WHATSAPP_NUMBER = "5491167907135";
+  const TODAY = new Date().toISOString().slice(0,10);
+  const RESULT_KEY  = 'raspadita:result:' + TODAY;
 
-  // ==== Storage keys (por día) ====
-  const TODAY = new Date().toISOString().slice(0,10); // YYYY-MM-DD
-  const PLAYED_KEY  = 'raspadita:lastPlayDay';
-  const RESULT_KEY  = 'raspadita:result:' + TODAY;   // guarda {mensaje, win, stampText}
-
-  // ==== Utilidades ====
-  function isWinningMessage(text){ return /ganaste/i.test(text || ""); }
-  function fechaHoraAR(){
-    return new Date().toLocaleString("es-AR", { timeZone: "America/Argentina/Buenos_Aires" });
-  }
-  function genCode(len=6){
-    return Math.random().toString(36).slice(2, 2+len).toUpperCase().replace(/O/g,'0').replace(/I/g,'1');
-  }
-
-  // ==== Estado ====
   let currentWin = false;
   let currentStampText = "";
 
-  // ==== Carga inicial con cache diario ====
+  function fechaHoraAR(){ return new Date().toLocaleString("es-AR",{timeZone:"America/Argentina/Buenos_Aires"}); }
+  function genCode(len=6){ return Math.random().toString(36).slice(2,2+len).toUpperCase(); }
+  function isWinningMessage(text){ return /ganaste/i.test(text||""); }
+
   async function prepararPremio(){
-    // 1) Si hay resultado cacheado de hoy, úsalo y NO vuelvas a sortear
     const cached = localStorage.getItem(RESULT_KEY);
     if (cached){
       const data = JSON.parse(cached);
       premio.innerHTML = data.mensajeHTML ?? data.mensaje;
-      currentWin = !!data.win;
-      currentStampText = data.stampText || "";
-      if (currentWin){
-        stamp.textContent = currentStampText;
-        stamp.style.display = 'inline-block';
-      } else {
-        stamp.style.display = 'none';
-      }
-      return; // listo
-    }
-
-    // 2) Si ya jugó hoy (por alguna razón sin cache), avisar y no sortear
-    if (localStorage.getItem(PLAYED_KEY) === TODAY){
-      premio.textContent = "⏳ Ya jugaste hoy. Volvé mañana.";
-      currentWin = false;
-      stamp.style.display = 'none';
+      currentWin = data.win; currentStampText = data.stampText;
+      if (currentWin){ stamp.textContent=data.stampText; stamp.style.display='inline-block'; }
+      else { stamp.style.display='none'; }
+      // 🔒 Deshabilitar raspado: ya jugó hoy
+      canvas.style.display='none';
       return;
     }
 
-    // 3) No hay cache → pedir al backend UNA vez
     try{
-      const r = await fetch('/api/sorteo', { method:'POST', headers:{'Content-Type':'application/json'} });
+      const r = await fetch('/api/sorteo',{method:'POST',headers:{'Content-Type':'application/json'}});
       const data = await r.json();
-      if (!data.ok) throw new Error(data.error || 'error');
+      if(!data.ok) throw new Error(data.error||'error');
 
-      currentWin = isWinningMessage(data.mensaje);
-      if (currentWin){
-        const codigo = (data.code || genCode());
-        const horaAR = fechaHoraAR();
-        currentStampText = `Emitido: ${horaAR} · Código: ${codigo}`;
-        const mensajeHTML = `${data.mensaje}<br><small style="color:#cdd6ea">${currentStampText}</small>`;
-        premio.innerHTML = mensajeHTML;
-        stamp.textContent = currentStampText;
-        stamp.style.display = 'inline-block';
-
-        // Guardar cache del día
-        localStorage.setItem(RESULT_KEY, JSON.stringify({ mensaje: data.mensaje, mensajeHTML, win:true, stampText: currentStampText }));
-      } else {
-        premio.textContent = data.mensaje;
-        stamp.style.display = 'none';
-        localStorage.setItem(RESULT_KEY, JSON.stringify({ mensaje: data.mensaje, win:false, stampText:"" }));
+      currentWin=isWinningMessage(data.mensaje);
+      if(currentWin){
+        const codigo=data.code||genCode();
+        const horaAR=fechaHoraAR();
+        currentStampText=`Emitido: ${horaAR} · Código: ${codigo}`;
+        const mensajeHTML=`${data.mensaje}<br><small style="color:#cdd6ea">${currentStampText}</small>`;
+        premio.innerHTML=mensajeHTML;
+        stamp.textContent=currentStampText; stamp.style.display='inline-block';
+        localStorage.setItem(RESULT_KEY,JSON.stringify({mensaje:data.mensaje,mensajeHTML,win:true,stampText:currentStampText}));
+      }else{
+        premio.textContent=data.mensaje;
+        stamp.style.display='none';
+        localStorage.setItem(RESULT_KEY,JSON.stringify({mensaje:data.mensaje,win:false,stampText:""}));
       }
-
-      // Marcar que ya jugó hoy
-      localStorage.setItem(PLAYED_KEY, TODAY);
     }catch(e){
-      premio.textContent = "⚠️ Intentalo de nuevo en un momento.";
-      currentWin = false;
-      stamp.style.display = 'none';
+      premio.textContent="⚠️ Intentalo de nuevo en un momento.";
+      currentWin=false; stamp.style.display='none';
     }
   }
   document.addEventListener('DOMContentLoaded', prepararPremio);
 
-  // ==== Raspado ====
+  // Raspado
   const BRUSH=42, REVEAL_THRESHOLD=0.5;
   let drawing=false, revealed=false, last=null, lastCheck=0, dpr=1;
-
   function size(){
     const wrap=document.querySelector('.prize-wrap');
-    const w=wrap.clientWidth, h=wrap.clientHeight;
-    dpr=Math.max(1, window.devicePixelRatio||1);
-    canvas.style.width=w+'px'; canvas.style.height=h+'px';
-    canvas.width=Math.floor(w*dpr); canvas.height=Math.floor(h*dpr);
-    ctx.setTransform(dpr,0,0,dpr,0,0);
-    paintCover(w,h);
+    const w=wrap.clientWidth,h=wrap.clientHeight;
+    dpr=Math.max(1,window.devicePixelRatio||1);
+    canvas.style.width=w+'px';canvas.style.height=h+'px';
+    canvas.width=Math.floor(w*dpr);canvas.height=Math.floor(h*dpr);
+    ctx.setTransform(dpr,0,0,dpr,0,0); paintCover(w,h);
   }
   function paintCover(w,h){
     ctx.globalCompositeOperation='source-over';
     const grad=ctx.createLinearGradient(0,0,w,h);
     grad.addColorStop(0,'#b7b7b7'); grad.addColorStop(1,'#9c9c9c');
     ctx.fillStyle=grad; ctx.fillRect(0,0,w,h);
-    ctx.fillStyle='rgba(0,0,0,.35)';
-    ctx.font="bold 20px Inter, Arial"; ctx.textAlign="center"; ctx.textBaseline="middle";
-    ctx.fillText("Raspá aquí", w/2, h/2);
+    ctx.fillStyle='rgba(0,0,0,.35)'; ctx.font="bold 20px Inter, Arial";
+    ctx.textAlign="center"; ctx.textBaseline="middle";
+    ctx.fillText("Raspá aquí", w/2,h/2);
     revealed=false; waBtn.style.display='none'; canvas.style.opacity=1; canvas.style.display='block';
   }
-  function pos(e){ const r=canvas.getBoundingClientRect(); const x=(e.touches?e.touches[0].clientX:e.clientX)-r.left; const y=(e.touches?e.touches[0].clientY:e.clientY)-r.top; return {x,y}; }
-  function scratch(e){
-    if(!drawing||revealed)return;
-    const {x,y}=pos(e);
-    ctx.globalCompositeOperation='destination-out';
-    ctx.beginPath(); ctx.arc(x,y,BRUSH,0,Math.PI*2); ctx.fill();
-    if(last){ ctx.lineWidth=BRUSH*2; ctx.lineCap='round'; ctx.beginPath(); ctx.moveTo(last.x,last.y); ctx.lineTo(x,y); ctx.stroke(); }
-    last={x,y}; throttleCheck();
-  }
-  const sample=document.createElement('canvas'); const sctx=sample.getContext('2d',{willReadFrequently:true}); sample.width=80; sample.height=50;
-  function throttleCheck(){ const now=performance.now(); if(now-lastCheck<160)return; lastCheck=now; checkReveal(); }
-  function checkReveal(){
-    sctx.clearRect(0,0,sample.width,sample.height);
-    sctx.drawImage(canvas,0,0,sample.width,sample.height);
-    const {data}=sctx.getImageData(0,0,sample.width,sample.height);
-    let transparent=0; for(let i=3;i<data.length;i+=4) if(data[i]===0) transparent++;
-    const percent=transparent/(sample.width*sample.height);
-    if(percent>=REVEAL_THRESHOLD && !revealed) reveal();
-  }
-  function reveal(){
-    revealed=true;
-    canvas.style.transition='opacity .45s ease';
-    canvas.style.opacity=0; setTimeout(()=> (canvas.style.display='none'), 470);
-    if (currentWin) waBtn.style.display='inline-block';
-  }
-  canvas.addEventListener('pointerdown', e=>{canvas.setPointerCapture?.(e.pointerId);drawing=true;last=null;scratch(e);});
-  canvas.addEventListener('pointermove', scratch);
-  canvas.addEventListener('pointerup',   e=>{canvas.releasePointerCapture?.(e.pointerId);drawing=false;last=null;});
+  function pos(e){const r=canvas.getBoundingClientRect();const x=(e.touches?e.touches[0].clientX:e.clientX)-r.left;const y=(e.touches?e.touches[0].clientY:e.clientY)-r.top;return{x,y};}
+  function scratch(e){if(!drawing||revealed)return;const {x,y}=pos(e);ctx.globalCompositeOperation='destination-out';ctx.beginPath();ctx.arc(x,y,BRUSH,0,Math.PI*2);ctx.fill();if(last){ctx.lineWidth=BRUSH*2;ctx.lineCap='round';ctx.beginPath();ctx.moveTo(last.x,last.y);ctx.lineTo(x,y);ctx.stroke();}last={x,y};throttleCheck();}
+  const sample=document.createElement('canvas');const sctx=sample.getContext('2d',{willReadFrequently:true});sample.width=80;sample.height=50;
+  function throttleCheck(){const now=performance.now();if(now-lastCheck<160)return;lastCheck=now;checkReveal();}
+  function checkReveal(){sctx.clearRect(0,0,sample.width,sample.height);sctx.drawImage(canvas,0,0,sample.width,sample.height);const {data}=sctx.getImageData(0,0,sample.width,sample.height);let transparent=0;for(let i=3;i<data.length;i+=4)if(data[i]===0)transparent++;const percent=transparent/(sample.width*sample.height);if(percent>=REVEAL_THRESHOLD&&!revealed)reveal();}
+  function reveal(){revealed=true;canvas.style.transition='opacity .45s ease';canvas.style.opacity=0;setTimeout(()=> (canvas.style.display='none'),470);if(currentWin)waBtn.style.display='inline-block';}
+  canvas.addEventListener('pointerdown',e=>{canvas.setPointerCapture?.(e.pointerId);drawing=true;last=null;scratch(e);});
+  canvas.addEventListener('pointermove',scratch);
+  canvas.addEventListener('pointerup',e=>{canvas.releasePointerCapture?.(e.pointerId);drawing=false;last=null;});
   canvas.addEventListener('pointercancel',()=>{drawing=false;last=null;});
   canvas.style.touchAction='none';
 
-  // ==== WhatsApp + captura ====
-  async function captureCardBlob(){
-    if (!window.html2canvas) return null;
-    const cap = await html2canvas(card,{backgroundColor:null, scale:Math.min(window.devicePixelRatio||1,2), useCORS:true});
-    return await new Promise(res=>cap.toBlob(res,'image/png',0.95));
-  }
-  function downloadBlob(blob,filename){
-    const url=URL.createObjectURL(blob); const a=document.createElement('a');
-    a.href=url; a.download=filename; document.body.appendChild(a); a.click();
-    setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); }, 100);
-  }
-  waBtn.addEventListener('click', async ()=>{
-    if (!currentWin) return;
-    const baseText = premio.textContent.replace(/\s+/g,' ').trim();
-    const mensaje  = `¡Hola! Acabo de ganar en la RASPADITA TEAM L-5: ${baseText} — ${currentStampText}`;
-    const waURL    = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(mensaje)}`;
-    const blob = await captureCardBlob();
-    try{
-      if (blob && navigator.canShare && navigator.canShare({ files: [new File([blob],'premio.png',{type:'image/png'})] })) {
-        await navigator.share({ files:[new File([blob],'premio.png',{type:'image/png'})], title:'Premio RASPADITA TEAM L-5', text:mensaje });
-        return;
-      }
-    }catch(e){}
-    if (blob) downloadBlob(blob,'premio.png');
-    window.open(waURL,'_blank');
-  });
+  // WhatsApp
+  async function captureCardBlob(){if(!window.html2canvas)return null;const cap=await html2canvas(card,{backgroundColor:null,scale:Math.min(window.devicePixelRatio||1,2),useCORS:true});return await new Promise(res=>cap.toBlob(res,'image/png',0.95));}
+  function downloadBlob(blob,filename){const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=filename;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(url);a.remove();},100);}
+  waBtn.addEventListener('click',async()=>{if(!currentWin)return;const mensaje=`¡Hola! Gané en la RASPADITA TEAM L-5: ${premio.textContent.replace(/\s+/g,' ').trim()} — ${currentStampText}`;const waURL=`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(mensaje)}`;const blob=await captureCardBlob();if(blob)downloadBlob(blob,'premio.png');window.open(waURL,'_blank');});
 
   // Init
-  window.addEventListener('resize', size);
-  window.addEventListener('load', size);
-  document.addEventListener('DOMContentLoaded', size);
+  window.addEventListener('resize',size);
+  window.addEventListener('load',size);
+  document.addEventListener('DOMContentLoaded',size);
 </script>
 </body>
 </html>
