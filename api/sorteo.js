@@ -10,31 +10,53 @@ const PRIZES = [
   { label: "🎁 ¡Ganaste 500 fichas!",   weight: 70 },
 ];
 
-// Agregá aquí tu dominio productivo si ya lo tenés definido:
+// Dominios permitidos
 const ALLOWED_HOSTS = [
   "teaml5-raspadita.vercel.app", // prod
   "localhost:3000"               // dev
 ];
-const ALLOW_VERCEL_PREVIEWS = true;
+// Si querés permitir previews de Vercel, poné true:
+const ALLOW_VERCEL_PREVIEWS = false;
 
+// Rate limit (IP)
 const ipHitWindow = 60 * 1000; // 1 minuto
-const ipMaxHitsPerWindow = 20; // máximo 20 hits por minuto por IP
+const ipMaxHitsPerWindow = 20;
 const ipHits = new Map();      // ip -> { tsArray: number[] }
 
+// Memoria de proceso (no persiste entre cold starts)
 const issuedCodes   = new Map();   // code -> { ts }
 const clientResults = new Map();   // clientId -> { dayKey, resultado }
 
-// ---- Handler ----
 export default async function handler(req, res) {
-  if (req.method === "OPTIONS") { addCors(req,res); return res.status(200).end(); }
-  if (req.method !== "POST")    { addCors(req,res); return res.status(405).json({ ok:false, error:"Método no permitido" }); }
+  // Headers comunes en todas las respuestas JSON
+  res.setHeader("Content-Type", "application/json; charset=utf-8");
+  res.setHeader("Cache-Control", "no-store");
+
+  if (req.method === "OPTIONS") {
+    // Preflight CORS: solo si el origen es válido
+    const allowed = isAllowedHost(req);
+    if (allowed.ok) addCorsAllowed(res, allowed.origin);
+    return res.status(200).end();
+  }
+
+  if (req.method !== "POST") {
+    return res.status(405).json({ ok:false, error:"Método no permitido" });
+  }
 
   const allowed = isAllowedHost(req);
-  if (!allowed.ok) { addCors(req,res); return res.status(403).json({ ok:false, error:"Acceso denegado" }); }
+  if (!allowed.ok) {
+    // No eco de CORS cuando el origen es inválido
+    return res.status(403).json({ ok:false, error:"Acceso denegado" });
+  }
 
-  // Rate-limit IP
+  // A partir de acá, CORS habilitado para el origen permitido
+  addCorsAllowed(res, allowed.origin);
+
+  // Rate-limit por IP
   const ip = getClientIP(req).chosen;
-  if (isRateLimited(ip)) { addCors(req,res,allowed.origin); return res.status(429).json({ ok:false, error:"Demasiadas solicitudes" }); }
+  if (isRateLimited(ip)) {
+    return res.status(429).json({ ok:false, error:"Demasiadas solicitudes" });
+  }
 
   try {
     const body = parseBody(req.body);
@@ -48,8 +70,12 @@ export default async function handler(req, res) {
     if (clientId) {
       const prev = clientResults.get(clientId);
       if (prev && prev.dayKey === dayKey) {
-        addCors(req,res,allowed.origin);
-        return res.status(200).json({ ok:true, ...prev.resultado, clientId, whatsApp: getWa() });
+        return res.status(200).json({
+          ok: true,
+          ...prev.resultado,
+          clientId,
+          whatsApp: getWa()
+        });
       }
     }
 
@@ -59,24 +85,26 @@ export default async function handler(req, res) {
       ? `${netKey}:${dayKey}:${clientId}:${SECRET}`
       : `${netKey}:${dayKey}:${SECRET}`;
 
+    // Decide si gana
     const rndWin = pseudoRandom(baseSeed); // [0,1)
     const win = rndWin < PROB_WIN;
 
-    let mensaje;
+    // Mensaje (texto plano)
+    let mensaje = LOSE_TEXT;
     if (win) {
       const rndPrize = pseudoRandom(baseSeed + ":prize");
       const prize = pickWeighted(PRIZES, rndPrize);
-      mensaje = prize.label;
+      mensaje = String(prize?.label ?? "🎁 Premio");
     } else {
-      mensaje = LOSE_TEXT;
+      mensaje = String(LOSE_TEXT);
     }
 
-    // Sello de tiempo (UTC) y código verificable “tipo HMAC”
+    // Sello (UTC) y “código” verificable
     const nowUtc = new Date().toISOString();
     const raw = `${nowUtc}|${netKey}|${clientId || "NOCLIENT"}|${win ? "W":"L"}`;
     const code = hmac(raw, SECRET).slice(0,8).toUpperCase();
 
-    // Guardar en memoria
+    // Guarda en memoria
     const ts = Date.now();
     issuedCodes.set(code, { ts });
     cleanupIssued(ts);
@@ -87,10 +115,13 @@ export default async function handler(req, res) {
       cleanupClientResults(ts);
     }
 
-    addCors(req,res,allowed.origin);
-    return res.status(200).json({ ok:true, ...resultado, clientId, whatsApp: getWa() });
-  } catch (err) {
-    addCors(req,res);
+    return res.status(200).json({
+      ok: true,
+      ...resultado,
+      clientId,
+      whatsApp: getWa()
+    });
+  } catch {
     return res.status(500).json({ ok:false, error:"Error interno" });
   }
 }
@@ -111,13 +142,16 @@ function isAllowedHost(req){
     if (ALLOWED_HOSTS.includes(host)) return { ok:true, origin:`${u.protocol}//${host}` };
     if (ALLOW_VERCEL_PREVIEWS && host.endsWith(".vercel.app")) return { ok:true, origin:`${u.protocol}//${host}` };
     return { ok:false };
-  } catch { return { ok:false }; }
+  } catch {
+    return { ok:false };
+  }
 }
-function addCors(req,res,origin){
+function addCorsAllowed(res, origin){
   if (origin) res.setHeader("Access-Control-Allow-Origin", origin);
-  res.setHeader("Vary","Origin");
-  res.setHeader("Access-Control-Allow-Methods","POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers","Content-Type");
+  res.setHeader("Vary", "Origin");
+  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  res.setHeader("Access-Control-Allow-Credentials", "false");
 }
 function getClientIP(req){
   const h = req.headers || {};
@@ -173,11 +207,10 @@ function cleanupClientResults(now){
   }
 }
 
-// ---- Rate limit básico por IP (ventana rodante de 1 minuto)
+// ---- Rate-limit por IP (ventana rodante 1 minuto)
 function isRateLimited(ip){
   const now = Date.now();
   const rec = ipHits.get(ip) || { tsArray: [] };
-  // limpia timestamps viejos
   rec.tsArray = rec.tsArray.filter(t => now - t <= ipHitWindow);
   rec.tsArray.push(now);
   ipHits.set(ip, rec);
