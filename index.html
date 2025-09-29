@@ -114,17 +114,13 @@
   <div class="confetti-layer" id="confettiLayer"></div>
 
 <script>
-  /* ===== Reset por URL: ?reset=1 (con confirmación) ===== */
+  /* ===== Reset rápido por URL: ?reset=1 ===== */
   (function(){
     const q = new URLSearchParams(location.search);
     if (q.get('reset') === '1') {
-      if (confirm('¿Reiniciar la jugada de HOY en este dispositivo?')) {
-        const today = new Date().toISOString().slice(0,10);
-        localStorage.removeItem('raspadita:result:' + today);
-        location.replace(location.pathname);
-      } else {
-        history.replaceState(null,'',location.pathname);
-      }
+      const today = new Date().toISOString().slice(0,10);
+      localStorage.removeItem('raspadita:result:' + today);
+      location.replace(location.pathname);
     }
   })();
 
@@ -137,34 +133,28 @@
   const hintEl = document.getElementById('hint');
   const confettiLayer = document.getElementById('confettiLayer');
 
+  const WHATSAPP_NUMBER = "5491167907135"; // <<-- seguirá visible hasta que movamos esto al backend
   const TODAY = new Date().toISOString().slice(0,10);
   const RESULT_KEY = 'raspadita:result:' + TODAY;
 
   let currentWin = false;
   let currentStampText = "";
   let revealed = false;
-  let lastWhatsApp = ""; // lo trae el backend
 
   function fechaHoraAR(){
     return new Date().toLocaleString("es-AR", { timeZone: "America/Argentina/Buenos_Aires" });
   }
-
-  // genCode con crypto (solo fallback visual; el backend manda code)
   function genCode(len=6){
-    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-    const a = new Uint32Array(len);
-    (crypto.getRandomValues || window.crypto.getRandomValues).call(crypto, a);
-    return Array.from(a, x => chars[x % chars.length]).join('');
+    return Math.random().toString(36).slice(2, 2+len).toUpperCase().replace(/O/g,'0').replace(/I/g,'1');
   }
-
   function isWinningMessage(text){ return /ganaste/i.test(text || ""); }
 
-  // ID único por navegador (persistente)
+  // 👇 ID único por navegador
   function getClientId(){
     const k = 'raspadita:clientId';
     let id = localStorage.getItem(k);
     if (!id){
-      id = 'cid_' + genCode(6) + Date.now().toString(36);
+      id = 'cid_' + Math.random().toString(36).slice(2) + Date.now().toString(36);
       localStorage.setItem(k, id);
     }
     return id;
@@ -201,6 +191,18 @@
     }
   }
 
+  /* === Setter SEGURO del mensaje (anti-XSS) === */
+  function setSafePrizeMessage(msg, stampText) {
+    premio.textContent = (msg || "").toString();
+    if (stampText) {
+      premio.appendChild(document.createElement('br'));
+      const sm = document.createElement('small');
+      sm.style.color = '#cdd6ea';
+      sm.textContent = stampText;
+      premio.appendChild(sm);
+    }
+  }
+
   // ===== Carga inicial =====
   async function init(){
     const cached = localStorage.getItem(RESULT_KEY);
@@ -208,7 +210,6 @@
       const data = JSON.parse(cached);
       currentWin = !!data.win;
       currentStampText = data.stampText || "";
-      lastWhatsApp = data.whatsApp || "";
       canvas.style.display = 'none';
 
       if (currentWin){
@@ -273,23 +274,10 @@
     if(percent>=REVEAL_THRESHOLD && !revealed) reveal();
   }
 
-  // -- Sanitizador y setter seguro del mensaje (anti-XSS)
-  function setSafePrizeMessage(msg, stampText) {
-    premio.textContent = (msg || "").toString();
-    if (stampText) {
-      premio.appendChild(document.createElement('br'));
-      const sm = document.createElement('small');
-      sm.style.color = '#cdd6ea';
-      sm.textContent = stampText;
-      premio.appendChild(sm);
-    }
-  }
-
   // ===== Al revelar por primera vez =====
   async function reveal(){
     revealed=true;
 
-    // Pide resultado UNA vez
     let sorteo;
     try{
       sorteo = await pedirSorteo();
@@ -298,11 +286,10 @@
       return;
     }
 
-    lastWhatsApp = sorteo.whatsApp || "";
     const codigo = (sorteo.code || genCode());
     const horaAR = fechaHoraAR();
     currentStampText = `Emitido: ${horaAR} · Código: ${codigo}`;
-    currentWin = !!sorteo.win || isWinningMessage(sorteo.mensaje);
+    currentWin = isWinningMessage(sorteo.mensaje);
 
     if (currentWin){
       setSafePrizeMessage(sorteo.mensaje, currentStampText);
@@ -315,8 +302,7 @@
       localStorage.setItem(RESULT_KEY, JSON.stringify({
         mensaje: sorteo.mensaje,
         win: true,
-        stampText: currentStampText,
-        whatsApp: lastWhatsApp
+        stampText: currentStampText
       }));
     } else {
       setSafePrizeMessage("😅 Sin premio esta vez. Probá mañana.", currentStampText);
@@ -326,8 +312,7 @@
       localStorage.setItem(RESULT_KEY, JSON.stringify({
         mensaje: "Sin premio",
         win: false,
-        stampText: currentStampText,
-        whatsApp: lastWhatsApp
+        stampText: currentStampText
       }));
     }
 
@@ -360,9 +345,7 @@
     if (!currentWin) return;
     const baseText = premio.textContent.replace(/\s+/g,' ').trim();
     const mensaje  = `¡Hola! Acabo de ganar en la RASPADITA TEAM L-5: ${baseText} — ${currentStampText}`;
-    const wa = lastWhatsApp || "";
-    const waURL = wa ? `https://wa.me/${wa}?text=${encodeURIComponent(mensaje)}` : null;
-
+    const waURL    = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(mensaje)}`;
     const blob = await captureCardBlob();
     try{
       if (blob && navigator.canShare && navigator.canShare({ files: [new File([blob],'premio.png',{type:'image/png'})] })) {
@@ -371,7 +354,7 @@
       }
     }catch(e){}
     if (blob) downloadBlob(blob,'premio.png');
-    if (waURL) window.open(waURL,'_blank');
+    window.open(waURL,'_blank');
   });
 
   // Atajo admin: Shift+R limpia el resultado de hoy
