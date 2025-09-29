@@ -5,11 +5,9 @@
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>RASPADITA TEAM L-5</title>
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@800;900&family=Inter:wght@400;700;800&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js" defer></script>
 <style>
   :root{
-    /* Se setea por JS si carga OK */
-    --bg-url: none;
+    --bg-url: url("f1ec4f7e-3b11-414c-bb1c-3db302c97c66.jpg"); /* tu imagen de fondo */
     --glass: rgba(10,14,25,.55);
     --accent: #00d5ff;
     --accent-2: #7b5cff;
@@ -22,19 +20,9 @@
     margin:0; color:#eaf2ff; font-family: Inter, system-ui, Segoe UI, Roboto, Arial, sans-serif;
     background:#0b0f1a;
   }
-  .bg{position:fixed; inset:0; z-index:-2;
-    background: #101623 center/cover no-repeat fixed;
-    filter:brightness(.9) saturate(1.05)}
-  /* cuando la imagen carga, se aplica */
-  .bg.bg-ready{ background-image: var(--bg-url); }
-
-  .bg::after{
-    content:""; position:absolute; inset:0;
-    background:linear-gradient(180deg, rgba(8,10,18,.55), rgba(8,10,18,.78));
-    backdrop-filter: blur(2px)
-  }
-
-  .wrap{min-height:100%; display:grid; place-items:center; padding:20px}
+  .bg{position:fixed; inset:0; z-index:-2; background: var(--bg-url) center/cover no-repeat fixed; filter:brightness(.9) saturate(1.05)}
+  .bg::after{content:""; position:absolute; inset:0; background:linear-gradient(180deg, rgba(8,10,18,.55), rgba(8,10,18,.78)); backdrop-filter: blur(2px)}
+  .wrap{min-height:100%; display:grid; place-items:center; padding:28px}
   .stack{width:min(520px, 92vw); margin-inline:auto}
   h1{
     margin:0 0 18px; text-align:center;
@@ -47,290 +35,170 @@
   }
   @keyframes popIn{0%{transform:scale(.2);opacity:0}70%{transform:scale(1.08);opacity:1}100%{transform:scale(1)}}
   @keyframes blink{0%,100%{filter:drop-shadow(0 2px 0 #000)}50%{filter:drop-shadow(0 0 18px rgba(255,216,107,.55))}}
-
   .card{
     position:relative; overflow:hidden; background: var(--glass);
-    border:1px solid rgba(255,255,255,.08); border-radius: 18px; padding:18px;
+    border:1px solid rgba(255,255,255,.08); border-radius: 18px; padding:22px;
     box-shadow: 0 10px 40px rgba(0,0,0,.45), inset 0 0 0 1px rgba(255,255,255,.04);
     backdrop-filter: blur(6px);
   }
-  .prize-wrap{
-    position:relative; width:100%; height:240px; border-radius:14px; overflow:hidden; isolation:isolate;
-    border:1px solid rgba(255,255,255,.08); background:rgba(0,0,0,.35);
-  }
   #premio{
-    position:absolute; inset:0; display:grid; place-items:center;
+    position:relative; width:100%; height:240px; display:grid; place-items:center;
+    border-radius:14px; overflow:hidden;
+    background: rgba(0,0,0,.35);
+    border:1px solid rgba(255,255,255,.08);
     font-weight:800; font-size:clamp(20px,4.8vw,28px); color:var(--gold);
+    text-align:center; padding:12px;
     text-shadow: 0 2px 0 rgba(0,0,0,.8), 0 0 14px rgba(255,216,107,.35);
-    padding:10px; text-align:center;
   }
   #scratch{
     position:absolute; inset:0; display:block; border-radius:14px;
     box-shadow: inset 0 0 0 1px rgba(0,0,0,.35), 0 0 22px rgba(0,0,0,.25);
-    touch-action:none; clip-path: inset(0 round 14px);
+    touch-action:none;
   }
-  .actions{display:flex; gap:10px; justify-content:center; margin-top:16px; flex-wrap:wrap;}
-  .btn{
-    border:0; cursor:pointer; padding:12px 18px; border-radius:999px;
-    font-weight:800; letter-spacing:.3px; display:inline-flex; align-items:center; gap:8px;
-    color:#071018; background: radial-gradient(120% 120% at 0% 0%, var(--accent), var(--accent-2));
-    box-shadow: 0 8px 22px rgba(0,213,255,.25); transition: transform .15s ease, box-shadow .2s ease, filter .2s ease;
+  .actions{display:flex; justify-content:center; margin-top:16px}
+  #reclamar{
+    display:none; border:0; cursor:pointer; padding:12px 22px; border-radius:999px;
+    font-weight:800; letter-spacing:.3px;
+    background: radial-gradient(120% 120% at 0% 0%, var(--accent), var(--accent-2));
+    color:#071018; box-shadow: 0 8px 22px rgba(0,213,255,.25);
   }
-  .btn:hover{ transform: translateY(-1px); box-shadow:0 12px 28px rgba(0,213,255,.32) }
-  .btn:active{ transform: translateY(1px); filter:brightness(.92) }
-  #whatsappBtn{ display:none }  #downloadBtn{ display:none }
   .hint{color:var(--muted); text-align:center; margin-top:8px; font-size:14px}
-
-  .confetti-layer{ position: fixed; inset:0; pointer-events:none; overflow:hidden; z-index: 999; }
-  .confetto{position:absolute; width:10px; height:14px; border-radius:2px; opacity:.95}
-
-  /* Toast de error (si no carga la imagen) */
-  .toast{
-    position:fixed; left:50%; transform:translateX(-50%);
-    bottom:16px; padding:10px 14px; font-weight:700; font-size:14px;
-    color:#0c111c; background:#ffd86b; border-radius:10px; box-shadow:0 8px 18px rgba(0,0,0,.35);
-    display:none; z-index:1000;
-  }
-  .toast.show{display:block;}
 </style>
 </head>
 <body>
-  <div class="bg" id="bg"></div>
+  <div class="bg"></div>
 
   <div class="wrap">
     <div class="stack">
-      <h1> RASPADITA TEAM L-5 </h1>
-
-      <div class="card" id="card">
-        <div class="prize-wrap" id="prizeWrap">
-          <div id="premio">🎁 Ganaste 500 fichas</div>
-          <canvas id="scratch"></canvas>
-        </div>
-
+      <h1>🎰 RASPADITA TEAM L-5 🎰</h1>
+      <div class="card">
+        <div id="premio">🎁 Cargando premio...</div>
+        <canvas id="scratch"></canvas>
         <div class="actions">
-          <button id="whatsappBtn" class="btn">📲 Enviar captura por WhatsApp</button>
-          <button id="downloadBtn" class="btn" style="background:linear-gradient(90deg,#ffd86b,#fff0a6)">⬇️ Descargar captura</button>
+          <button id="reclamar">Reclamar premio</button>
         </div>
-        <div class="hint">Raspá con el dedo o el mouse. Al revelar ~50% se habilitan los botones.</div>
+        <div class="hint">Raspá con el dedo o el mouse. Al revelar ~50% se habilita el botón.</div>
       </div>
     </div>
   </div>
 
-  <div class="confetti-layer" id="confettiLayer"></div>
-  <div class="toast" id="toast">No se encontró la imagen de fondo. Subila a /public/ o revisá la URL.</div>
-
 <script>
-  /* ====== FONDO: intenta rutas en orden ======
-     1) Local/Vercel: /f1ec4f7e-3b11-414c-bb1c-3db302c97c66.jpg  (colocala en /public/)
-     2) GitHub RAW (main)
-     3) GitHub RAW (master)
-  */
-  const FILE = "f1ec4f7e-3b11-414c-bb1c-3db302c97c66.jpg";
-  const GITHUB_USER = "tammistfequipo";       // <- cambiá si tu repo es otro usuario
-  const GITHUB_REPO = "teaml5-raspadita"; // <- cambiá si tu repo se llama distinto
-
-  const BG_CANDIDATES = [
-    // Vercel sirve /public/ en la raíz del dominio:
-    `${location.origin.replace(/\/$/, "")}/${FILE}`,
-    // Intento relativo por si se sirve desde subruta
-    `./${FILE}`,
-    // GitHub raw (main)
-    `https://raw.githubusercontent.com/${GITHUB_USER}/${GITHUB_REPO}/main/${FILE}`,
-    // GitHub raw (master)
-    `https://raw.githubusercontent.com/${GITHUB_USER}/${GITHUB_REPO}/master/${FILE}`
-  ];
-
-  const bgEl = document.getElementById('bg');
-  const toast = document.getElementById('toast');
-
-  async function pickBackground(urls){
-    for (const url of urls){
-      const ok = await testImage(url);
-      if (ok){
-        document.documentElement.style.setProperty('--bg-url', `url("${url}")`);
-        bgEl.classList.add('bg-ready');
-        return true;
-      }
-    }
-    toast.classList.add('show');
-    return false;
-  }
-
-  function testImage(src){
-    return new Promise(res=>{
-      const img = new Image();
-      img.onload = ()=>res(true);
-      img.onerror = ()=>res(false);
-      // evita cache pegado
-      img.src = src + (src.includes('?') ? '&' : '?') + 'v=' + Date.now();
-    });
-  }
-
-  // ====== LÓGICA DE RASPADO ======
   const canvas = document.getElementById('scratch');
   const ctx = canvas.getContext('2d', { willReadFrequently: true });
   const premio = document.getElementById('premio');
-  const confettiLayer = document.getElementById('confettiLayer');
-  const card = document.getElementById('card');
-  const whatsappBtn = document.getElementById('whatsappBtn');
-  const downloadBtn = document.getElementById('downloadBtn');
-  const WHATSAPP_NUMBER = "5491167907135";
-  const BRUSH = 46;
-  const REVEAL_THRESHOLD = 0.5;
+  const btn = document.getElementById('reclamar');
 
-  let drawing = false, revealed = false, last = null, lastCheck = 0, dpr = 1;
+  // ========= BACKEND =========
+  function getClientId(){
+    const k = 'raspadita:clientId';
+    let id = localStorage.getItem(k);
+    if (!id){
+      id = 'cid_' + Math.random().toString(36).slice(2) + Date.now().toString(36);
+      localStorage.setItem(k, id);
+    }
+    return id;
+  }
+  async function prepararPremio(){
+    const dayKey = new Date().toISOString().slice(0,10);
+    const playedKey = 'raspadita:lastPlayDay';
+    if (localStorage.getItem(playedKey) === dayKey){
+      premio.textContent = "⏳ Ya jugaste hoy. Volvé mañana.";
+      return;
+    }
+    try{
+      const r = await fetch('/api/sorteo', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ clientId: getClientId() })
+      });
+      const data = await r.json();
+      if (!data.ok) throw new Error(data.error || 'error');
+      premio.textContent = data.mensaje;
+      localStorage.setItem(playedKey, dayKey);
+    }catch(e){
+      premio.textContent = "⚠️ Intentalo de nuevo en un momento.";
+    }
+  }
+  document.addEventListener('DOMContentLoaded', prepararPremio);
+
+  // ========= RASPADO =========
+  const BRUSH = 34;
+  const REVEAL_THRESHOLD = 0.5;
+  let drawing=false, revealed=false, last=null, lastCheck=0;
 
   function size(){
-    const wrap = canvas.parentElement;
-    const w = wrap.clientWidth;
-    const h = wrap.clientHeight;
-    dpr = Math.max(1, window.devicePixelRatio || 1);
-
-    canvas.style.width  = w + 'px';
-    canvas.style.height = h + 'px';
-    canvas.width  = Math.floor(w * dpr);
-    canvas.height = Math.floor(h * dpr);
-
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    paintCover(w, h);
+    const w = premio.clientWidth, h = premio.clientHeight;
+    const dpr = Math.max(1, window.devicePixelRatio || 1);
+    canvas.style.width=w+'px'; canvas.style.height=h+'px';
+    canvas.width=Math.floor(w*dpr); canvas.height=Math.floor(h*dpr);
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    paintCover(w,h);
   }
-
-  function paintCover(wcss, hcss){
-    ctx.globalCompositeOperation = 'source-over';
-    const grad = ctx.createLinearGradient(0,0,wcss,hcss);
-    grad.addColorStop(0, '#bfbfbf'); grad.addColorStop(1, '#9d9d9d');
-    ctx.fillStyle = grad; ctx.fillRect(0,0,wcss,hcss);
-
-    ctx.fillStyle = 'rgba(0,0,0,.35)';
-    ctx.font = "bold 20px Inter, Arial";
-    ctx.textAlign = "center"; ctx.textBaseline = "middle";
-    ctx.fillText("Raspá aquí", wcss/2, hcss/2);
-
-    ctx.globalCompositeOperation = 'source-over';
-    canvas.style.opacity = 1;
-    canvas.style.display = 'block';
-    revealed = false;
-    whatsappBtn.style.display = 'none';
-    downloadBtn.style.display = 'none';
+  function paintCover(w,h){
+    ctx.globalCompositeOperation='source-over';
+    const grad = ctx.createLinearGradient(0,0,w,h);
+    grad.addColorStop(0,'#b7b7b7'); grad.addColorStop(1,'#9c9c9c');
+    ctx.fillStyle=grad; ctx.fillRect(0,0,w,h);
+    ctx.fillStyle='rgba(0,0,0,.35)';
+    ctx.font="bold 20px Inter, Arial";
+    ctx.textAlign="center"; ctx.textBaseline="middle";
+    ctx.fillText("Raspá aquí", w/2, h/2);
   }
-
   function pos(e){
     const r = canvas.getBoundingClientRect();
-    const cx = (e.touches ? e.touches[0].clientX : e.clientX) - r.left;
-    const cy = (e.touches ? e.touches[0].clientY : e.clientY) - r.top;
-    return {x: cx, y: cy};
+    const cx=(e.touches?e.touches[0].clientX:e.clientX)-r.left;
+    const cy=(e.touches?e.touches[0].clientY:e.clientY)-r.top;
+    return {x:cx,y:cy};
   }
-
   function scratch(e){
-    if (!drawing || revealed) return;
-    const {x,y} = pos(e);
-
-    ctx.globalCompositeOperation = 'destination-out';
-    ctx.beginPath(); ctx.arc(x, y, BRUSH, 0, Math.PI*2); ctx.fill();
-
-    if (last){
-      ctx.lineWidth = BRUSH * 2;
-      ctx.lineCap = 'round';
-      ctx.beginPath();
-      ctx.moveTo(last.x, last.y);
-      ctx.lineTo(x, y);
-      ctx.stroke();
+    if(!drawing||revealed)return;
+    const {x,y}=pos(e);
+    ctx.globalCompositeOperation='destination-out';
+    ctx.beginPath(); ctx.arc(x,y,BRUSH,0,Math.PI*2); ctx.fill();
+    if(last){
+      ctx.lineWidth=BRUSH*2; ctx.lineCap='round';
+      ctx.beginPath(); ctx.moveTo(last.x,last.y); ctx.lineTo(x,y); ctx.stroke();
     }
-    last = {x, y};
+    last={x,y};
     throttleCheck();
   }
-
-  const sample = document.createElement('canvas');
-  const sctx = sample.getContext('2d', { willReadFrequently: true });
-  sample.width = 80; sample.height = 50;
-
+  const sample=document.createElement('canvas');
+  const sctx=sample.getContext('2d'); sample.width=80; sample.height=50;
   function throttleCheck(){
-    const now = performance.now();
-    if (now - lastCheck < 140) return;
-    lastCheck = now;
-    checkReveal();
+    const now=performance.now();
+    if(now-lastCheck<180)return; lastCheck=now; checkReveal();
   }
-
   function checkReveal(){
-    sctx.clearRect(0,0,sample.width,sample.height);
-    sctx.drawImage(canvas, 0, 0, sample.width, sample.height);
-    const {data} = sctx.getImageData(0,0,sample.width,sample.height);
-    let transparent = 0;
-    for (let i=3; i<data.length; i+=4) if (data[i] === 0) transparent++;
-    const percent = transparent / (sample.width*sample.height);
-    if (percent >= REVEAL_THRESHOLD && !revealed) reveal();
+    sctx.clearRect(0,0,80,50);
+    sctx.drawImage(canvas,0,0,80,50);
+    const {data}=sctx.getImageData(0,0,80,50);
+    let transparent=0;
+    for(let i=3;i<data.length;i+=4) if(data[i]===0) transparent++;
+    const percent=transparent/(80*50);
+    if(percent>=REVEAL_THRESHOLD && !revealed) reveal();
   }
-
-  function confetti(){
-    for(let i=0;i<100;i++){
-      const c = document.createElement('div');
-      c.className='confetto';
-      c.style.left = Math.random()*100 + 'vw';
-      c.style.top = '-10px';
-      c.style.background = `hsl(${Math.random()*360}, 90%, 60%)`;
-      const rot = (Math.random()*360)|0;
-      const dur = 6000 + Math.random()*2500;
-      const dx  = (Math.random()*2-1)*120;
-      c.animate([
-        { transform:`translate(0,0) rotate(${rot}deg)`, opacity:1 },
-        { transform:`translate(${dx}px, 100vh) rotate(${rot+360}deg)`, opacity:.9 }
-      ], { duration:dur, easing:'ease-out', fill:'forwards' });
-      confettiLayer.appendChild(c);
-      setTimeout(()=>c.remove(), dur+200);
-    }
-  }
-
   function reveal(){
-    revealed = true;
-    canvas.style.transition = 'opacity .45s ease';
-    canvas.style.opacity = 0;
-    setTimeout(()=> (canvas.style.display='none'), 470);
-    confetti();
-    whatsappBtn.style.display = 'inline-flex';
-    downloadBtn.style.display = 'inline-flex';
+    revealed=true;
+    canvas.style.transition='opacity .5s ease';
+    canvas.style.opacity=0;
+    setTimeout(()=> (canvas.style.display='none'),520);
+    btn.style.display='inline-block';
   }
 
-  // Eventos pointer
-  canvas.addEventListener('pointerdown', e=>{ canvas.setPointerCapture(e.pointerId); drawing = true; last = null; scratch(e); });
-  canvas.addEventListener('pointermove', scratch);
-  canvas.addEventListener('pointerup',   e=>{ canvas.releasePointerCapture?.(e.pointerId); drawing = false; last = null; });
-  canvas.addEventListener('pointercancel',()=>{ drawing = false; last = null; });
-  canvas.style.touchAction = 'none';
+  canvas.addEventListener('pointerdown', e=>{drawing=true;last=null;scratch(e);});
+  canvas.addEventListener('pointermove',scratch);
+  canvas.addEventListener('pointerup',()=>{drawing=false;last=null;});
+  canvas.addEventListener('pointerleave',()=>{drawing=false;last=null;});
+  canvas.style.touchAction='none';
 
-  // Captura tarjeta
-  async function captureCardBlob(){
-    if (!window.html2canvas) return null;
-    const canvasCap = await html2canvas(card, { backgroundColor: null, scale: Math.min(window.devicePixelRatio || 1, 2), useCORS: true });
-    return await new Promise(res => canvasCap.toBlob(res, 'image/png', 0.95));
-  }
-  function downloadBlob(blob, filename){
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a'); a.href = url; a.download = filename;
-    document.body.appendChild(a); a.click();
-    setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); }, 100);
-  }
-  downloadBtn.addEventListener('click', async ()=>{
-    const blob = await captureCardBlob(); if (!blob) return; downloadBlob(blob, 'premio.png');
-  });
-  whatsappBtn.addEventListener('click', async ()=>{
-    const mensaje = `¡Hola! Acabo de ganar en la RASPADITA TEAM L-5: ${premio.textContent.trim()}`;
-    const blob = await captureCardBlob();
-    const waURL = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(mensaje)}`;
-    if (blob){ downloadBlob(blob, 'premio.png'); }
-    window.open(waURL, '_blank');
+  btn.addEventListener('click', ()=>{
+    const numero="5491167907135";
+    const msg=`¡Hola! Acabo de ganar en la raspadita: ${premio.textContent.trim()}`;
+    window.open(`https://wa.me/${numero}?text=${encodeURIComponent(msg)}`,'_blank');
   });
 
-  // Init
   window.addEventListener('resize', size);
-  window.addEventListener('load', ()=>{
-    size();
-    pickBackground(BG_CANDIDATES);
-  });
-  document.addEventListener('DOMContentLoaded', ()=>{
-    size();
-    // Intento por si el load llegó antes
-    pickBackground(BG_CANDIDATES);
-  });
+  window.addEventListener('load', size);
 </script>
 </body>
 </html>
